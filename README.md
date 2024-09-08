@@ -1,5 +1,5 @@
 # ayon-comfyui
-An AYON Addon for launching ComfyUI locally.
+An AYON Addon for launching ComfyUI locally via TrayLauncher.
 
 > ⚠️ **Warning:** This addon is Windows-only and depends on `conda` to be executable on your system.
 
