@@ -13,4 +13,4 @@ Use `checkpoints_dir` to copy checkpoints to configured repository root.
 
 ## How it works
 This addon uses `git` from AYON's dependency package to clone `ComfyUI` and any custom plugins that are configured.
-`conda` is used to build a local python environment `ayon_comfyui` for installing all required dependencies. This environment is used to run `ComfyUI` in.
+`conda` is used to build a local python environment `ayon_comfyui` for installing all required dependencies. This environment is used to run `ComfyUI` in a separate terminal session.
