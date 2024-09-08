@@ -1,0 +1,2 @@
+[tool.poetry.dependencies]
+six = "^1.15"
