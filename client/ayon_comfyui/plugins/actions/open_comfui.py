@@ -59,14 +59,13 @@ class OpenComfyUI(LauncherAction):
             )
 
         # copy checkpoints
-        checkpoints_dir = Path(addon_settings["checkpoints_dir"])
-        if checkpoints_dir.exists():
+        if checkpoints_dir := addon_settings.get("checkpoints_dir"):
             comfy_checkpoints_dir = comfy_root / "models" / "checkpoints"
-            for checkpoint in checkpoints_dir.glob("*"):
-                checkpoint_dest = comfy_checkpoints_dir / checkpoint.name
+            for cp in Path(checkpoints_dir).iterdir():
+                checkpoint_dest = comfy_checkpoints_dir / cp.name
                 if not checkpoint_dest.exists():
-                    log.info(f"Copying {checkpoint} to {comfy_checkpoints_dir}")
-                    shutil.copyfile(checkpoint, checkpoint_dest)
+                    log.info(f"Copying {cp} to {comfy_checkpoints_dir}")
+                    shutil.copyfile(cp, checkpoint_dest)
 
         # run the server in a new terminal session
         launch_script = Path(__file__).parent / "launch_comfyui.ps1"
