@@ -70,10 +70,8 @@ class OpenComfyUI(LauncherAction):
 
         # copy custom nodes
         custom_nodes_dir = Path(ADDON_ROOT) / "custom_nodes"
-        log.info(f"{custom_nodes_dir = }")
         comfy_custom_nodes_dir = comfy_root / "custom_nodes"
         for node in custom_nodes_dir.iterdir():
-            log.info(f"{node = }")
             node_dest = comfy_custom_nodes_dir / node.name
             if not node_dest.exists():
                 log.info(f"Copying {node} to {node_dest}")
