@@ -13,7 +13,7 @@ from ayon_core.pipeline.template_data import get_template_data
 from ayon_core.lib import Logger, StringTemplate
 
 
-from ayon_comfyui import ADDON_NAME, ADDON_VERSION
+from ayon_comfyui import ADDON_NAME, ADDON_VERSION, ADDON_ROOT
 
 log = Logger.get_logger(__name__)
 
@@ -67,6 +67,17 @@ class OpenComfyUI(LauncherAction):
                 if not checkpoint_dest.exists():
                     log.info(f"Copying {cp} to {comfy_checkpoints_dir}")
                     shutil.copyfile(cp, checkpoint_dest)
+
+        # copy custom nodes
+        custom_nodes_dir = Path(ADDON_ROOT) / "custom_nodes"
+        log.info(f"{custom_nodes_dir = }")
+        comfy_custom_nodes_dir = comfy_root / "custom_nodes"
+        for node in custom_nodes_dir.iterdir():
+            log.info(f"{node = }")
+            node_dest = comfy_custom_nodes_dir / node.name
+            if not node_dest.exists():
+                log.info(f"Copying {node} to {node_dest}")
+                shutil.copyfile(node, node_dest)
 
         # run the server in a new terminal session
         launch_script = Path(__file__).parent / "launch_comfyui.ps1"
