@@ -1,4 +1,4 @@
-class Example:
+class PublishImage:
     """
     A example node
 
@@ -53,52 +53,16 @@ class Example:
                     + First value is a string indicate the type of field or a list for selection.
                     + Second value is a config for type "INT", "STRING" or "FLOAT".
         """
-        return {
-            "required": {
-                "image": ("IMAGE",),
-                "int_field": (
-                    "INT",
-                    {
-                        "default": 0,
-                        "min": 0,  # Minimum value
-                        "max": 4096,  # Maximum value
-                        "step": 64,  # Slider's step
-                        "display": "number",  # Cosmetic only: display as "number" or "slider"
-                        "lazy": True,  # Will only be evaluated if check_lazy_status requires it
-                    },
-                ),
-                "float_field": (
-                    "FLOAT",
-                    {
-                        "default": 1.0,
-                        "min": 0.0,
-                        "max": 10.0,
-                        "step": 0.01,
-                        "round": 0.001,  # The value representing the precision to round to, will be set to the step value by default. Can be set to False to disable rounding.
-                        "display": "number",
-                        "lazy": True,
-                    },
-                ),
-                "print_to_screen": (["enable", "disable"],),
-                "string_field": (
-                    "STRING",
-                    {
-                        "multiline": False,  # True if you want the field to look like the one on the ClipTextEncode node
-                        "default": "Hello World!",
-                        "lazy": True,
-                    },
-                ),
-            },
-        }
+        return {"required": {"image": ("IMAGE")}}
 
-    RETURN_TYPES = ("IMAGE",)
+    RETURN_TYPES = ()
     # RETURN_NAMES = ("image_output_name",)
 
     FUNCTION = "test"
 
     # OUTPUT_NODE = False
 
-    CATEGORY = "Example"
+    CATEGORY = "bEpic"
 
     def check_lazy_status(
         self, image, string_field, int_field, float_field, print_to_screen
@@ -159,7 +123,7 @@ async def get_hello(request):
 
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
-NODE_CLASS_MAPPINGS = {"Example": Example}
+NODE_CLASS_MAPPINGS = {"PublishImage": PublishImage}
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
-NODE_DISPLAY_NAME_MAPPINGS = {"Example": "Example Node"}
+NODE_DISPLAY_NAME_MAPPINGS = {"PublishImage": "PublishImage"}
