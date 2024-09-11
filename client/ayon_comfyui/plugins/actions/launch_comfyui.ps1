@@ -1,33 +1,39 @@
+# assumes to be in comfyui directory
 param(
-    [switch]$useCpu = $false
+    [switch]$useCpu = $false,
+    [string[]]$plugins = @()
 )
 
-# Define the name of the conda environment
-$envName = "ayon_comfyui"
-
-
-# Check if the conda environment exists
-$envExists = conda env list | Select-String -Pattern "^\s*$envName\s"
-
-if (-not $envExists) {
-    # Create the conda environment if it does not exist
-    Write-Output "Creating conda environment: $envName"
-    conda create -n $envName python -y
-} else {
-    Write-Output "Conda environment '$envName' already exists."
+# ensure uv is installed
+if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
+    Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
 }
 
-# Activate the conda environment
-conda activate $envName
-conda info
+# Check for local venv
+if (-not (Test-Path .\venv)) {
+    uv venv
+}
+.venv\Scripts\activate
 
-# Install requirements from requirements.txt
-# use python -I -m pip instead of pip to avoid environment conflicts
-python -I -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu124
+# Install requirements
+Write-Output "Installing ComfyUI requirements"
+uv pip install pip # needed by ComfyUI-Manager to install node deps
+uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu124
+
+# install plugins dependencies
+foreach ($plugin in $plugins) {
+    $plugin_requirements = ".\custom_nodes\$plugin\requirements.txt"
+    if (Test-Path $plugin_requirements) {
+        Write-Output "Installing $plugin dependencies"
+        uv pip install -r $plugin_requirements
+    }
+}
+
 
 # run the server
 if ($useCpu) {
-    python .\main.py --cpu
+    Write-Output "Running ComfyUI with CPU"
+    uv run .\main.py --cpu
 } else {
-    python .\main.py
+    uv run .\main.py
 }

@@ -52,6 +52,7 @@ class OpenComfyUI(LauncherAction):
         for plugin in plugins:
             plugin_name = Path(plugin["url"]).name[:-4]
             plugin_root = comfy_root / "custom_nodes" / plugin_name
+            plugin.update({"root": plugin_root})
             self._git_clone(
                 url=plugin["url"],
                 root=plugin_root,
@@ -75,6 +76,11 @@ class OpenComfyUI(LauncherAction):
         if addon_settings.get("use_cpu"):
             log.info("Launching ComfyUI with CPU only.")
             launch_args.append("-useCpu")
+        if plugins:
+            launch_args.append("-plugins")
+            plugin_names = [plugin["root"].name for plugin in plugins]
+            launch_args.extend(list(plugin_names))
+
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])
         launch_args = [
@@ -82,6 +88,7 @@ class OpenComfyUI(LauncherAction):
             "-Command",
             f"Start-Process powershell.exe -ArgumentList '-NoExit', '-Command', '{cmd}'",
         ]
+        log.info(f"{cmd = }")
         subprocess.Popen(
             launch_args,
             shell=True,
