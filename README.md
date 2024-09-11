@@ -1,7 +1,8 @@
 # ayon-comfyui
 An AYON Addon for launching ComfyUI locally via TrayLauncher.
 
-> ⚠️ **Warning:** This addon is Windows-only and depends on `conda` to be executable on your system.
+> ⚠️ **Warning:** This addon is Windows-only and depends on `uv` to be executable on your system.
+> If `uv` is not found it will run the installation script from https://astral.sh/uv/install.ps1.
 
 
 ## Settings
@@ -13,4 +14,4 @@ Use `checkpoints_dir` to copy checkpoints to configured repository root.
 
 ## How it works
 This addon uses `git` from AYON's dependency package to clone `ComfyUI` and any custom plugins that are configured.
-`conda` is used to build a local python environment `ayon_comfyui` for installing all required dependencies. This environment is used to run `ComfyUI` in a separate terminal session.
+`uv` is used for installing all required dependencies and environment solving. This environment is used to run `ComfyUI` in a separate terminal session.
