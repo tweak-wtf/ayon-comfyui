@@ -2,7 +2,7 @@
 An AYON Addon for launching ComfyUI locally via TrayLauncher.
 
 > ⚠️ **Warning:** This addon is Windows-only and depends on `uv` to be executable on your system.
-> If `uv` is not found it will run the installation script from https://astral.sh/uv/install.ps1.
+> If `uv` is not found it will run the installation script from https://astral.sh/uv/install.ps1 for the current user.
 
 
 ## Settings
