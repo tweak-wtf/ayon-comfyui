@@ -4,6 +4,11 @@ param(
     [string[]]$plugins = @()
 )
 
+# ensure uv is installed
+if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
+    Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
+}
+
 # Check for local venv
 if (-not (Test-Path .\venv)) {
     uv venv
