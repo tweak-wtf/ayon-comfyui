@@ -7,6 +7,7 @@ param(
 # ensure uv is installed
 if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
     Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
+    $env:Path += ";$env:USERPROFILE\.cargo\bin"
 }
 
 # Check for local venv
