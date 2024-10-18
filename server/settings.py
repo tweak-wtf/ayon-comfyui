@@ -31,7 +31,7 @@ class CustomNodeSettings(RepositorySettings):
 
 
 class ComfyUIExtraModelSettings(BaseSettingsModel):
-    enabled: bool = SettingsField(default=True, description="Enable this extra model.")
+    enabled: bool = SettingsField(default=False)
     template: str = SettingsField(
         default="",
         title="Directory Template",
