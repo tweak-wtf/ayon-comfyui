@@ -10,10 +10,8 @@ if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
     $env:Path += ";$env:USERPROFILE\.cargo\bin"
 }
 
-# Check for local venv
-if (-not (Test-Path .\venv)) {
-    uv venv
-}
+# create local venv
+uv venv --allow-existing
 .venv\Scripts\activate
 
 # Install requirements
