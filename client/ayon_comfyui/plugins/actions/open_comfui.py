@@ -20,7 +20,7 @@ log = Logger.get_logger(__name__)
 
 class OpenComfyUI(LauncherAction):
     name = "open_comfyui"
-    label = "Open ComyUI"
+    label = "Open ComfyUI"
     icon = "robot"
     order = 500
 
