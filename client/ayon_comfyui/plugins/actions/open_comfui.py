@@ -43,10 +43,12 @@ class OpenComfyUI(LauncherAction):
             ADDON_NAME, ADDON_VERSION, tmpl_data["project"]["name"]
         )
 
-        comfy_root_tmpl = StringTemplate(self.addon_settings["repo"]["root"])
+        comfy_root_tmpl = StringTemplate(
+            self.addon_settings["repositories"]["base_template"]
+        )
         self.comfy_root = Path(comfy_root_tmpl.format_strict(tmpl_data))
 
-        self.plugins = self.addon_settings.get("plugins", [])
+        self.plugins = self.addon_settings["repositories"]["plugins"]
 
     def clone_repositories(self):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
@@ -61,15 +63,16 @@ class OpenComfyUI(LauncherAction):
                 repo.git.checkout(tag)
             return repo
 
+        base_repo = self.addon_settings["repositories"]["base"]
         git_clone(
-            url=self.addon_settings["repo"]["url"],
+            url=base_repo["url"],
             dest=self.comfy_root,
-            tag=self.addon_settings["repo"]["tag"],
+            tag=base_repo["tag"],
         )
 
         # clone custom nodes
         for plugin in self.plugins:
-            plugin_name = Path(plugin["url"]).name[:-4]
+            plugin_name = Path(plugin["url"]).stem
             plugin_root = self.comfy_root / "custom_nodes" / plugin_name
             plugin.update({"root": plugin_root})
             git_clone(
@@ -94,7 +97,7 @@ class OpenComfyUI(LauncherAction):
         _cmd: list = [launch_script.as_posix()]
 
         launch_args = []
-        if self.addon_settings.get("use_cpu"):
+        if self.addon_settings["general"].get("use_cpu"):
             log.info("Launching ComfyUI with CPU only.")
             launch_args.append("-useCpu")
         if self.plugins:
