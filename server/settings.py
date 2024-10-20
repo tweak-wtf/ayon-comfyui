@@ -30,12 +30,12 @@ class CustomNodeSettings(RepositorySettings):
     )
 
 
-class ComfyUIExtraModelSettings(BaseSettingsModel):
+class ComfyUIExtraModelSettingsItem(BaseSettingsModel):
     enabled: bool = SettingsField(default=False)
-    template: str = SettingsField(
-        default="",
-        title="Directory Template",
-        description="Where to load extra models from.",
+    dir_templates: list[str] = SettingsField(
+        default_factory=list,
+        title="Source Directories",
+        description="Where to load extra models from. Can also contain template keys",
     )
     copy_to_base: bool = SettingsField(
         default=False,
@@ -44,14 +44,38 @@ class ComfyUIExtraModelSettings(BaseSettingsModel):
     )
 
 
+class ComfyUIExtraModelSettings(BaseSettingsModel):
+    checkpoints: ComfyUIExtraModelSettingsItem = SettingsField(
+        default_factory=ComfyUIExtraModelSettingsItem,
+    )
+    clip: ComfyUIExtraModelSettingsItem = SettingsField(
+        default_factory=ComfyUIExtraModelSettingsItem,
+    )
+    clip_vision: ComfyUIExtraModelSettingsItem = SettingsField(
+        default_factory=ComfyUIExtraModelSettingsItem,
+    )
+    controlnet: ComfyUIExtraModelSettingsItem = SettingsField(
+        default_factory=ComfyUIExtraModelSettingsItem,
+    )
+    embeddings: ComfyUIExtraModelSettingsItem = SettingsField(
+        default_factory=ComfyUIExtraModelSettingsItem,
+    )
+    loras: ComfyUIExtraModelSettingsItem = SettingsField(
+        default_factory=ComfyUIExtraModelSettingsItem,
+    )
+    upscale_models: ComfyUIExtraModelSettingsItem = SettingsField(
+        default_factory=ComfyUIExtraModelSettingsItem,
+    )
+    vae: ComfyUIExtraModelSettingsItem = SettingsField(
+        default_factory=ComfyUIExtraModelSettingsItem,
+    )
+
+
 class ComfyUIGeneralSettings(BaseSettingsModel):
     use_cpu: bool = SettingsField(
         default=False, title="Use CPU", description="Use only CPU."
     )
-    checkpoints: ComfyUIExtraModelSettings = SettingsField(
-        default_factory=ComfyUIExtraModelSettings,
-    )
-    models: ComfyUIExtraModelSettings = SettingsField(
+    extra_models: ComfyUIExtraModelSettings = SettingsField(
         default_factory=ComfyUIExtraModelSettings,
     )
 
@@ -112,4 +136,19 @@ DEFAULT_VALUES = {
         },
         "plugins": [{"url": "https://github.com/ltdrdata/ComfyUI-Manager.git"}],
     },
+    # "general": {
+    #     "use_cpu": False,
+    #     "extra_models": {
+    #         "checkpoints": {
+    #             "enabled": False,
+    #             "template": "{root[publish]}/{project[name]}/comfyui_models/checkpoints",
+    #             "copy_to_base": False,
+    #         },
+    #         "models": {
+    #             "enabled": False,
+    #             "template": "{root[publish]}/{project[name]}/comfyui_models/models",
+    #             "copy_to_base": False,
+    #         },
+    #     },
+    # },
 }

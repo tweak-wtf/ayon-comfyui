@@ -1,4 +1,5 @@
 import git
+import yaml
 import shutil
 import subprocess
 from pathlib import Path
@@ -31,7 +32,8 @@ class OpenComfyUI(LauncherAction):
     def process(self, selection, **kwargs):
         self.pre_process(selection)
         self.clone_repositories()
-        self.run_server()
+        self.configure_extra_models()
+        self.run_server()  # TODO: get pid
 
     def pre_process(self, selection):
         # get project anatomy
@@ -49,6 +51,13 @@ class OpenComfyUI(LauncherAction):
         self.comfy_root = Path(comfy_root_tmpl.format_strict(tmpl_data))
 
         self.plugins = self.addon_settings["repositories"]["plugins"]
+
+        addon_extra_models = self.addon_settings["general"]["extra_models"]
+        self.extra_models = {
+            model_key: model_settings
+            for model_key, model_settings in addon_extra_models.items()
+            if model_settings.get("enabled")
+        }
 
     def clone_repositories(self):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
@@ -80,6 +89,44 @@ class OpenComfyUI(LauncherAction):
                 dest=plugin_root,
                 tag=plugin["tag"],
             )
+
+    def configure_extra_models(self):
+        if not self.extra_models:
+            return
+
+        # get server settings
+        extra_model_paths = {}
+        for model_key, model_settings in self.extra_models.items():
+            if not model_settings.get("dir_templates"):
+                continue
+
+            if model_settings.get("copy_to_base"):
+                for tmpl in model_settings["dir_templates"]:
+                    # TODO: resolve templates
+                    log.info(f"Copying {model_key} from {tmpl} to ComfyUI base")
+                    for model in Path(tmpl).iterdir():
+                        model_dest = self.comfy_root / "models" / model_key / model.name
+                        log.info(f"Copying {model} to {model_dest}")
+                        if not model_dest.exists():
+                            shutil.copyfile(model, model_dest)
+            else:
+                # TODO: convert to multiline string using | operator
+                dirs = "\n".join(model_settings["dir_templates"])
+                extra_model_paths.update({model_key: dirs})
+
+        # read current settings
+        config_file = self.comfy_root / "extra_model_paths.yaml"
+        with config_file.open("r") as config_reader:
+            config = yaml.safe_load(config_reader)
+            log.info(f"Current config: {config}")
+
+        # write new config if configured
+        if extra_model_paths:
+            new_conf = config.copy() if config else {}
+            new_conf.update({"comfyui": extra_model_paths})
+
+            with config_file.open("w+") as config_writer:
+                yaml.safe_dump(new_conf, config_writer)
 
     def copy_checkpoints(self):
         # copy checkpoints
