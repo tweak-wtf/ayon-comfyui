@@ -51,6 +51,10 @@ class OpenComfyUI(LauncherAction):
         self.comfy_root = Path(comfy_root_tmpl.format_strict(tmpl_data))
 
         self.plugins = self.addon_settings["repositories"]["plugins"]
+        self.extra_dependencies = set()
+        for plugin in self.plugins:
+            if plugin.get("extra_dependencies"):
+                self.extra_dependencies.update(plugin["extra_dependencies"])
 
         addon_extra_models = self.addon_settings["general"]["extra_models"]
         self.extra_models = {
@@ -106,7 +110,6 @@ class OpenComfyUI(LauncherAction):
                     log.info(f"Copying {model_key} from {tmpl} to ComfyUI base")
                     for model in Path(tmpl).iterdir():
                         model_dest = self.comfy_root / "models" / model_key / model.name
-                        log.info(f"Copying {model} to {model_dest}")
                         if not model_dest.exists():
                             shutil.copyfile(model, model_dest)
             else:
@@ -150,7 +153,10 @@ class OpenComfyUI(LauncherAction):
         if self.plugins:
             launch_args.append("-plugins")
             plugin_names = [plugin["root"].name for plugin in self.plugins]
-            launch_args.extend(list(plugin_names))
+            launch_args.append(",".join(plugin_names))
+        if self.extra_dependencies:
+            launch_args.append("-extraDependencies")
+            launch_args.append(",".join(self.extra_dependencies))
 
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])

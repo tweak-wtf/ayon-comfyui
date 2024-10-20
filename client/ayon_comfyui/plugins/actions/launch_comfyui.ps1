@@ -1,7 +1,8 @@
 # assumes to be in comfyui directory
 param(
     [switch]$useCpu = $false,
-    [string[]]$plugins = @()
+    [string[]]$plugins = @(),
+    [string[]]$extraDependencies = @()
 )
 
 # ensure uv is installed
@@ -20,7 +21,6 @@ if (-not $?){
 
 # Install requirements
 Write-Output "Installing ComfyUI requirements"
-uv pip install pip # needed by ComfyUI-Manager to install node deps
 uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu124
 
 # install plugins dependencies
@@ -32,6 +32,12 @@ foreach ($plugin in $plugins) {
     }
 }
 
+# install extra plugin dependencies
+Write-Output $extraDependencies.Count
+if ($extraDependencies) {
+    Write-Output "Installing extra dependencies"
+    uv pip install $extraDependencies
+}
 
 # run the server
 if ($useCpu) {
