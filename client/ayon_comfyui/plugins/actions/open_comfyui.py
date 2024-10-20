@@ -14,7 +14,7 @@ from ayon_core.pipeline.template_data import get_template_data
 from ayon_core.lib import Logger, StringTemplate
 
 
-from ayon_comfyui import ADDON_NAME, ADDON_VERSION
+from ayon_comfyui import ADDON_NAME, ADDON_VERSION, ADDON_ROOT
 
 log = Logger.get_logger(__name__)
 
@@ -147,7 +147,9 @@ class OpenComfyUI(LauncherAction):
 
     def run_server(self):
         # run the server in a new terminal session
-        launch_script = Path(__file__).parent / "launch_comfyui.ps1"
+        # TODO: write bash scripts for macos, linux and build launch_args here
+        launch_script = ADDON_ROOT / "tools" / "install_and_run_server_venv.ps1"
+
         _cmd: list = [launch_script.as_posix()]
 
         launch_args = []
