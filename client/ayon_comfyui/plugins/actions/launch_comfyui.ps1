@@ -12,6 +12,10 @@ if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
 
 # create local venv
 uv venv --allow-existing
+if (-not $?){
+    Write-Output "Failed to create venv"
+    exit 1
+}
 .venv\Scripts\activate
 
 # Install requirements
