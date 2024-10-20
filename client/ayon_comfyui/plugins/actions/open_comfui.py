@@ -63,6 +63,10 @@ class OpenComfyUI(LauncherAction):
             if model_settings.get("enabled")
         }
 
+        self.cache_dir = None
+        if self.addon_settings["caching"].get("enabled"):
+            self.cache_dir = self.addon_settings["caching"]["cache_dir_template"]
+
     def clone_repositories(self):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
             if not dest.exists():
@@ -157,6 +161,9 @@ class OpenComfyUI(LauncherAction):
         if self.extra_dependencies:
             launch_args.append("-extraDependencies")
             launch_args.append(",".join(self.extra_dependencies))
+        if self.cache_dir:
+            launch_args.append("-cacheDir")
+            launch_args.append(self.cache_dir)
 
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])

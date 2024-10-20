@@ -1,6 +1,7 @@
 # assumes to be in comfyui directory
 param(
     [switch]$useCpu = $false,
+    [string]$cacheDir = "",
     [string[]]$plugins = @(),
     [string[]]$extraDependencies = @()
 )
@@ -9,6 +10,11 @@ param(
 if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
     Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
     $env:Path += ";$env:USERPROFILE\.cargo\bin"
+}
+
+if ($cacheDir) {
+    Write-Output "Setting cache directory to $cacheDir"
+    $env:UV_CACHE_DIR = $cacheDir
 }
 
 # create local venv
@@ -33,7 +39,6 @@ foreach ($plugin in $plugins) {
 }
 
 # install extra plugin dependencies
-Write-Output $extraDependencies.Count
 if ($extraDependencies) {
     Write-Output "Installing extra dependencies"
     uv pip install $extraDependencies
