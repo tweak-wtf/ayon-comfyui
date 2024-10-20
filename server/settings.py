@@ -134,21 +134,11 @@ DEFAULT_VALUES = {
             "url": "https://github.com/comfyanonymous/ComfyUI.git",
             "tag": "v0.2.2",
         },
-        "plugins": [{"url": "https://github.com/ltdrdata/ComfyUI-Manager.git"}],
+        "plugins": [
+            {
+                "url": "https://github.com/ltdrdata/ComfyUI-Manager.git",
+                "extra_dependencies": ["pip"],
+            }
+        ],
     },
-    # "general": {
-    #     "use_cpu": False,
-    #     "extra_models": {
-    #         "checkpoints": {
-    #             "enabled": False,
-    #             "template": "{root[publish]}/{project[name]}/comfyui_models/checkpoints",
-    #             "copy_to_base": False,
-    #         },
-    #         "models": {
-    #             "enabled": False,
-    #             "template": "{root[publish]}/{project[name]}/comfyui_models/models",
-    #             "copy_to_base": False,
-    #         },
-    #     },
-    # },
 }
