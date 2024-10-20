@@ -38,17 +38,17 @@ class OpenComfyUI(LauncherAction):
     def pre_process(self, selection):
         # get project anatomy
         anatomy = Anatomy(project_name=selection.project_name)
-        tmpl_data = get_template_data(selection.project_entity)
-        tmpl_data.update({"root": anatomy.roots})
+        self.tmpl_data = get_template_data(selection.project_entity)
+        self.tmpl_data.update({"root": anatomy.roots})
 
         self.addon_settings = ayon_api.get_addon_project_settings(
-            ADDON_NAME, ADDON_VERSION, tmpl_data["project"]["name"]
+            ADDON_NAME, ADDON_VERSION, self.tmpl_data["project"]["name"]
         )
 
         comfy_root_tmpl = StringTemplate(
             self.addon_settings["repositories"]["base_template"]
         )
-        self.comfy_root = Path(comfy_root_tmpl.format_strict(tmpl_data))
+        self.comfy_root = Path(comfy_root_tmpl.format_strict(self.tmpl_data))
 
         self.plugins = self.addon_settings["repositories"]["plugins"]
         self.extra_dependencies = set()
@@ -65,7 +65,8 @@ class OpenComfyUI(LauncherAction):
 
         self.cache_dir = None
         if self.addon_settings["caching"].get("enabled"):
-            self.cache_dir = self.addon_settings["caching"]["cache_dir_template"]
+            cache_tmpl = self.addon_settings["caching"]["cache_dir_template"]
+            self.cache_dir = StringTemplate(cache_tmpl).format_strict(self.tmpl_data)
 
     def clone_repositories(self):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
@@ -110,9 +111,10 @@ class OpenComfyUI(LauncherAction):
 
             if model_settings.get("copy_to_base"):
                 for tmpl in model_settings["dir_templates"]:
-                    # TODO: resolve templates
+                    model_tmpl = StringTemplate(tmpl)
+                    model_dir = Path(model_tmpl.format_strict(self.tmpl_data))
                     log.info(f"Copying {model_key} from {tmpl} to ComfyUI base")
-                    for model in Path(tmpl).iterdir():
+                    for model in model_dir.iterdir():
                         model_dest = self.comfy_root / "models" / model_key / model.name
                         if not model_dest.exists():
                             shutil.copyfile(model, model_dest)
