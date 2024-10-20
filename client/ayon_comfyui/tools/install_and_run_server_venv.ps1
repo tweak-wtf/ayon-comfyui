@@ -1,23 +1,32 @@
 # assumes to be in comfyui directory
 param(
     [switch]$useCpu = $false,
-    [string[]]$plugins = @()
+    [string]$cacheDir = "",
+    [string[]]$plugins = @(),
+    [string[]]$extraDependencies = @()
 )
 
 # ensure uv is installed
 if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
     Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
+    $env:Path += ";$env:USERPROFILE\.cargo\bin"
 }
 
-# Check for local venv
-if (-not (Test-Path .\venv)) {
-    uv venv
+if ($cacheDir) {
+    Write-Output "Setting cache directory to $cacheDir"
+    $env:UV_CACHE_DIR = $cacheDir
+}
+
+# create local venv
+uv venv --allow-existing
+if (-not $?){
+    Write-Output "Failed to create venv"
+    exit 1
 }
 .venv\Scripts\activate
 
 # Install requirements
 Write-Output "Installing ComfyUI requirements"
-uv pip install pip # needed by ComfyUI-Manager to install node deps
 uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu124
 
 # install plugins dependencies
@@ -29,6 +38,11 @@ foreach ($plugin in $plugins) {
     }
 }
 
+# install extra plugin dependencies
+if ($extraDependencies) {
+    Write-Output "Installing extra dependencies"
+    uv pip install $extraDependencies
+}
 
 # run the server
 if ($useCpu) {
