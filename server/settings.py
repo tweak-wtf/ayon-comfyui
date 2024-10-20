@@ -1,12 +1,8 @@
 from pathlib import Path
-from typing import Literal, TYPE_CHECKING
-
-from pydantic import Field, validator
 
 from ayon_server.settings import (
     BaseSettingsModel,
     SettingsField,
-    MultiplatformPathModel,
 )
 
 
