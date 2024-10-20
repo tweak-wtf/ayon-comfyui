@@ -33,6 +33,7 @@ class OpenComfyUI(LauncherAction):
         self.pre_process(selection)
         self.clone_repositories()
         self.configure_extra_models()
+        self.copy_custom_nodes()
         self.run_server()  # TODO: get pid
 
     def pre_process(self, selection):
@@ -134,6 +135,14 @@ class OpenComfyUI(LauncherAction):
 
             with config_file.open("w+") as config_writer:
                 yaml.safe_dump(new_conf, config_writer)
+
+    def copy_custom_nodes(self):
+        custom_nodes_dir = Path(ADDON_ROOT) / "custom_nodes"
+        comfy_custom_nodes_dir = self.comfy_root / "custom_nodes"
+        for node in custom_nodes_dir.iterdir():
+            node_dest = comfy_custom_nodes_dir / node.name
+            log.info(f"Copying {node} to {node_dest}")
+            shutil.copyfile(node, node_dest)
 
     def copy_checkpoints(self):
         # copy checkpoints
