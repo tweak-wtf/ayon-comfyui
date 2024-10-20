@@ -1,13 +1,6 @@
 from typing import Type
 
-from nxtools import logging
-
 from ayon_server.addons import BaseServerAddon
-from ayon_server.api.dependencies import CurrentUser, ProjectName
-from ayon_server.entities import FolderEntity
-from ayon_server.exceptions import NotFoundException
-from ayon_server.lib.postgres import Postgres
-
 
 from .settings import AddonSettings, DEFAULT_VALUES
 
