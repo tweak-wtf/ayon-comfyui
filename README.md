@@ -13,10 +13,10 @@ It uses `git` from AYON's dependency package to clone `ComfyUI` and any custom p
 ## Settings
 
 ### Repository Settings
-![image](image.png)
+![image](https://github.com/user-attachments/assets/a7ce0a8b-edac-4727-9df2-993d90150ba6)
 
 ### General Settings
-![image](image-1.png)
+![image](https://github.com/user-attachments/assets/ac2053a8-a751-4e07-bbcf-c53bcd5527d6)
 
 ### Caching Settings
-![image](image-2.png)
+![image](https://github.com/user-attachments/assets/28b558ee-a4f9-4e57-9961-570104b1f8d0)
