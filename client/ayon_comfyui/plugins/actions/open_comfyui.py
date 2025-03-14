@@ -177,6 +177,8 @@ class OpenComfyUI(LauncherAction):
             f"Start-Process powershell.exe -ArgumentList '-NoExit', '-Command', '{cmd}'",
         ]
         log.info(f"{cmd = }")
+        env = os.environ.copy()
+        env["PYTHONPATH"] = ""
         subprocess.Popen(
             launch_args,
             shell=True,
@@ -184,4 +186,6 @@ class OpenComfyUI(LauncherAction):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=self.comfy_root,
+            env=env,
+            creationflags=subprocess.CREATE_NEW_CONSOLE,
         )
