@@ -27,7 +27,7 @@ if (-not $?){
 
 # Install requirements
 Write-Output "Installing ComfyUI requirements"
-uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu124
+uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126
 
 # install plugins dependencies
 foreach ($plugin in $plugins) {
