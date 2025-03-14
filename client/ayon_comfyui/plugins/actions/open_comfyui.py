@@ -105,6 +105,7 @@ class OpenComfyUI(LauncherAction):
             return
 
         # get server settings
+        config = None
         extra_model_paths = {}
         for model_key, model_settings in self.extra_models.items():
             if not model_settings.get("dir_templates"):
@@ -124,11 +125,11 @@ class OpenComfyUI(LauncherAction):
                 dirs = "\n".join(model_settings["dir_templates"])
                 extra_model_paths.update({model_key: dirs})
 
-        # read current settings
-        config_file = self.comfy_root / "extra_model_paths.yaml"
-        with config_file.open("r") as config_reader:
-            config = yaml.safe_load(config_reader)
-            log.info(f"Current config: {config}")
+                # read current settings
+                config_file = self.comfy_root / "extra_model_paths.yaml"
+                with config_file.open("r") as config_reader:
+                    config = yaml.safe_load(config_reader)
+                    log.info(f"Current config: {config}")
 
         # write new config if configured
         if extra_model_paths:
