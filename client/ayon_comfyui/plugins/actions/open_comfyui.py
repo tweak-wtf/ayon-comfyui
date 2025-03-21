@@ -125,8 +125,13 @@ class OpenComfyUI(LauncherAction):
                 dirs = "\n".join(model_settings["dir_templates"])
                 extra_model_paths.update({model_key: dirs})
 
-                # read current settings
+                # get or create config file
                 config_file = self.comfy_root / "extra_model_paths.yaml"
+                if not config_file.exists():
+                    example_config = self.comfy_root / "extra_model_paths.yaml.example"
+                    shutil.copyfile(example_config, config_file)
+                
+                # read current settings
                 with config_file.open("r") as config_reader:
                     config = yaml.safe_load(config_reader)
                     log.info(f"Current config: {config}")
