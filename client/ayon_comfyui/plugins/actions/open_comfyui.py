@@ -130,7 +130,7 @@ class OpenComfyUI(LauncherAction):
                 if not config_file.exists():
                     example_config = self.comfy_root / "extra_model_paths.yaml.example"
                     shutil.copyfile(example_config, config_file)
-                
+
                 # read current settings
                 with config_file.open("r") as config_reader:
                     config = yaml.safe_load(config_reader)
@@ -175,6 +175,10 @@ class OpenComfyUI(LauncherAction):
         if self.cache_dir:
             launch_args.append("-cacheDir")
             launch_args.append(self.cache_dir)
+
+        # add project name to launch args
+        launch_args.append("-projectName")
+        launch_args.append(self.tmpl_data["project"]["name"])
 
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])
