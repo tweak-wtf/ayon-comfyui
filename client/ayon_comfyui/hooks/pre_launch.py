@@ -27,10 +27,6 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
     launch_types = {LaunchTypes.local}
 
     def execute(self):
-        # log.debug(dir(self))
-        # log.debug(f"{self.data = }")
-        # log.debug(dir(self.manager))
-
         self.pre_process()
         self.clone_repositories()
         self.configure_extra_models()
@@ -174,10 +170,6 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             del env["PYTHONPATH"]
 
         popen_kwargs = {
-            # "shell": True,
-            # "text": True,
-            # "stdout": subprocess.PIPE,
-            # "stderr": subprocess.PIPE,
             "stdout": None,
             "stderr": None,
             "cwd": self.comfy_root,
