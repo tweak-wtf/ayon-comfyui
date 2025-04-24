@@ -1,45 +1,40 @@
-import os
 import git
 import yaml
 import shutil
+import ayon_api
 import subprocess
 from pathlib import Path
 
-import ayon_api
-
-from ayon_core.pipeline import (
-    Anatomy,
-    LauncherAction,
+from ayon_applications import (
+    PreLaunchHook,
+    LaunchTypes,
 )
-from ayon_core.pipeline.template_data import get_template_data
 from ayon_core.lib import Logger, StringTemplate
+from ayon_core.pipeline import Anatomy
+from ayon_core.pipeline.template_data import get_template_data
 
 
-from ayon_comfyui import ADDON_NAME, ADDON_VERSION, ADDON_ROOT
+from ayon_comfyui import ADDON_ROOT, ADDON_NAME, ADDON_VERSION
+
 
 log = Logger.get_logger(__name__)
 
 
-class OpenComfyUI(LauncherAction):
-    name = "open_comfyui"
-    label = "Open ComfyUI"
-    icon = "robot"
-    order = 500
+class ComfyUIPreLaunchHook(PreLaunchHook):
+    """Inject cli arguments to shell point at launch script."""
 
-    def is_compatible(self, selection):
-        """Return whether the action is compatible with the session"""
-        return True
+    hosts = {"comfyui"}
+    launch_types = {LaunchTypes.local}
 
-    def process(self, selection, **kwargs):
-        self.pre_process(selection)
+    def execute(self):
+        self.pre_process()
         self.clone_repositories()
         self.configure_extra_models()
-        self.run_server()  # TODO: get pid
+        self.run_server()
 
-    def pre_process(self, selection):
-        # get project anatomy
-        anatomy = Anatomy(project_name=selection.project_name)
-        self.tmpl_data = get_template_data(selection.project_entity)
+    def pre_process(self):
+        anatomy = Anatomy(project_name=self.data["project_name"])
+        self.tmpl_data = get_template_data(self.data["project_entity"])
         self.tmpl_data.update({"root": anatomy.roots})
 
         self.addon_settings = ayon_api.get_addon_project_settings(
@@ -50,6 +45,7 @@ class OpenComfyUI(LauncherAction):
             self.addon_settings["repositories"]["base_template"]
         )
         self.comfy_root = Path(comfy_root_tmpl.format_strict(self.tmpl_data))
+        log.debug(f"{self.comfy_root = }")
 
         self.plugins = self.addon_settings["repositories"]["plugins"]
         self.extra_dependencies = set()
@@ -70,16 +66,18 @@ class OpenComfyUI(LauncherAction):
             else:
                 repo = git.Repo(dest)
 
+            repo.git.fetch(tags=True)
             if tag:
                 log.info(f"Checking out tag {tag} for {repo}")
                 repo.git.checkout(tag)
             return repo
 
-        base_repo = self.addon_settings["repositories"]["base"]
+        app = self.launch_context.data["app"]
+        base_url = self.addon_settings["repositories"]["base_url"]
         git_clone(
-            url=base_repo["url"],
+            url=base_url,
             dest=self.comfy_root,
-            tag=base_repo["tag"],
+            tag=app.name,
         )
 
         # clone custom nodes
@@ -142,8 +140,6 @@ class OpenComfyUI(LauncherAction):
             yaml.safe_dump(new_conf, config_writer)
 
     def run_server(self):
-        # run the server in a new terminal session
-        # TODO: write bash scripts for macos, linux and build launch_args here
         launch_script = ADDON_ROOT / "tools" / "install_and_run_server_venv.ps1"
 
         _cmd: list = [launch_script.as_posix()]
@@ -171,15 +167,17 @@ class OpenComfyUI(LauncherAction):
             f"Start-Process powershell.exe -ArgumentList '-NoExit', '-Command', '{cmd}'",
         ]
         log.info(f"{cmd = }")
-        env = os.environ.copy()
-        env["PYTHONPATH"] = ""
-        subprocess.Popen(
-            launch_args,
-            shell=True,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=self.comfy_root,
-            env=env,
-            creationflags=subprocess.CREATE_NEW_CONSOLE,
-        )
+        env = self.data["env"].copy()
+        if "PYTHONPATH" in env:
+            del env["PYTHONPATH"]
+
+        popen_kwargs = {
+            "stdout": None,
+            "stderr": None,
+            "cwd": self.comfy_root,
+            "env": env,
+            "creationflags": subprocess.CREATE_NEW_CONSOLE,
+        }
+
+        self.launch_context.launch_args = launch_args
+        self.launch_context.kwargs = popen_kwargs
