@@ -71,11 +71,12 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 repo.git.checkout(tag)
             return repo
 
-        base_repo = self.addon_settings["repositories"]["base"]
+        app = self.launch_context.data["app"]
+        base_url = self.addon_settings["repositories"]["base_url"]
         git_clone(
-            url=base_repo["url"],
+            url=base_url,
             dest=self.comfy_root,
-            tag=base_repo["tag"],
+            tag=app.name,
         )
 
         # clone custom nodes
