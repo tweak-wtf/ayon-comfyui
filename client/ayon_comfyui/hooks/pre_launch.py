@@ -66,6 +66,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             else:
                 repo = git.Repo(dest)
 
+            repo.git.fetch(tags=True)
             if tag:
                 log.info(f"Checking out tag {tag} for {repo}")
                 repo.git.checkout(tag)
