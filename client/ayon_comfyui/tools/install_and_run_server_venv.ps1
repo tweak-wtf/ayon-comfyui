@@ -18,7 +18,7 @@ if ($cacheDir) {
 }
 
 # create local venv
-uv venv --allow-existing
+uv venv --allow-existing --python 3.12
 if (-not $?){
     Write-Output "Failed to create venv"
     exit 1
@@ -27,7 +27,7 @@ if (-not $?){
 
 # Install requirements
 Write-Output "Installing ComfyUI requirements"
-uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu124
+uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126
 
 # install plugins dependencies
 foreach ($plugin in $plugins) {
