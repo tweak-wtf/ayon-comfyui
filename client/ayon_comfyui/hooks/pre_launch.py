@@ -159,6 +159,10 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             launch_args.append("-cacheDir")
             launch_args.append(self.cache_dir)
 
+        # add project name to launch args
+        launch_args.append("-projectName")
+        launch_args.append(self.tmpl_data["project"]["name"])
+
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])
         launch_args = [
