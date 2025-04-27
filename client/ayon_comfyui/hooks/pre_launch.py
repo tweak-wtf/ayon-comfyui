@@ -53,6 +53,8 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             if plugin.get("extra_dependencies"):
                 self.extra_dependencies.update(plugin["extra_dependencies"])
 
+        self.extra_flags = self.addon_settings.get("extra_flags", [])
+
         self.cache_dir = None
         if self.addon_settings["caching"].get("enabled"):
             cache_tmpl = self.addon_settings["caching"]["cache_dir_template"]
@@ -145,9 +147,6 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         _cmd: list = [launch_script.as_posix()]
 
         launch_args = []
-        if self.addon_settings.get("use_cpu"):
-            log.info("Launching ComfyUI with CPU only.")
-            launch_args.append("-useCpu")
         if self.plugins:
             launch_args.append("-plugins")
             plugin_names = [plugin["root"].name for plugin in self.plugins]
@@ -158,6 +157,9 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         if self.cache_dir:
             launch_args.append("-cacheDir")
             launch_args.append(self.cache_dir)
+        if self.extra_flags:
+            launch_args.append("-extraFlags")
+            launch_args.append(self.extra_flags)
 
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])

@@ -1,8 +1,8 @@
 # assumes to be in comfyui directory
 param(
-    [switch]$useCpu = $false,
     [string]$cacheDir = "",
     [string[]]$plugins = @(),
+    [string[]]$extraFlags = @(),
     [string[]]$extraDependencies = @()
 )
 
@@ -44,10 +44,13 @@ if ($extraDependencies) {
     uv pip install $extraDependencies
 }
 
-# run the server
-if ($useCpu) {
-    Write-Output "Running ComfyUI with CPU"
-    uv run .\main.py --cpu
-} else {
-    uv run .\main.py
+$uv_command = @(".\main.py")
+if ($extraFlags) {
+    $uv_command += $extraFlags
 }
+
+$env:OPENCV_IO_ENABLE_OPENEXR = "1" # workaround for opencv error
+
+# run the server
+Write-Output $uv_command
+uv run $uv_command

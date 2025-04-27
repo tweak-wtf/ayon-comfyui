@@ -71,8 +71,10 @@ class ComfyUICachingSettings(BaseSettingsModel):
 class AddonSettings(BaseSettingsModel):
     """ComfyUI addon settings."""
 
-    use_cpu: bool = SettingsField(
-        default=False, title="Use CPU", description="Use only CPU."
+    extra_flags: list[str] = SettingsField(
+        default=[],
+        title="Extra Flags",
+        description="Extra argument flags to pass when launching the ComfyUI server.",
     )
     repositories: ComfyUIRepositorySettings = SettingsField(
         default_factory=ComfyUIRepositorySettings,
