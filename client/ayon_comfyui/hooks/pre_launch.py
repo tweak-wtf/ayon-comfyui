@@ -95,6 +95,10 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             )
 
     def configure_extra_models(self):
+        enabled = self.addon_settings["extra_models"].get("enabled")
+        if not enabled:
+            log.info("Extra models are not enabled.")
+            return
         extra_models_dir_tmpl = StringTemplate(
             self.addon_settings["extra_models"]["dir_template"]
         )
@@ -103,6 +107,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             folder for folder in extra_models_dir.iterdir() if folder.is_dir()
         }
         if not extra_model_dirs:
+            log.info(f"No extra models found in {extra_models_dir}.")
             return
 
         extra_models_map: dict[str, str] = {}
@@ -125,6 +130,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 log.info(f"Model {model_key} already exists at {model_dest}")
 
     def __reference_extra_models(self, extra_models_map: dict[str, Path]):
+        # TODO: refactor writing to config for configure_custom_nodes
         # get or create config file
         config_file = self.comfy_root / "extra_model_paths.yaml"
         if not config_file.exists():
