@@ -30,7 +30,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         self.pre_process()
         self.clone_repositories()
         self.configure_extra_models()
-        self.copy_custom_nodes()
+        self.configure_custom_nodes()
         self.run_server()
 
     def pre_process(self):
@@ -142,13 +142,29 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         with config_file.open("w+") as config_writer:
             yaml.safe_dump(new_conf, config_writer)
 
-    def copy_custom_nodes(self):
-        custom_nodes_dir = Path(ADDON_ROOT) / "custom_nodes"
-        comfy_custom_nodes_dir = self.comfy_root / "custom_nodes"
-        for node in custom_nodes_dir.iterdir():
-            node_dest = comfy_custom_nodes_dir / node.name
-            log.info(f"Copying {node} to {node_dest}")
-            shutil.copyfile(node, node_dest)
+    def configure_custom_nodes(self):
+        custom_nodes_dir = ADDON_ROOT / "custom_nodes"
+        config_file = self.comfy_root / "extra_model_paths.yaml"
+        if not config_file.exists():
+            example_config = ADDON_ROOT / "extra_model_paths.yaml.example"
+            shutil.copyfile(example_config, config_file)
+
+        # read current settings
+        with config_file.open("r") as config_reader:
+            config = yaml.safe_load(config_reader)
+            log.info(f"Current config: {config}")
+
+        # update config
+        new_conf = config.copy() if config else {}
+        new_conf.update(
+            {
+                "other_ui": {
+                    "custom_nodes": custom_nodes_dir.as_posix()
+                }
+            }
+        )
+        with config_file.open("w+") as config_writer:
+            yaml.safe_dump(new_conf, config_writer)
 
     def run_server(self):
         launch_script = ADDON_ROOT / "tools" / "install_and_run_server_venv.ps1"
