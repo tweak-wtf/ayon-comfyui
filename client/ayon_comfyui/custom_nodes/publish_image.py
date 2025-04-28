@@ -7,6 +7,8 @@ from PIL import Image
 
 import ayon_api
 
+from ayon_core.lib import StringTemplate
+
 log = logging.getLogger(__name__)
 
 
@@ -17,7 +19,18 @@ class AyonNode:
         self.app = ayon_env.get("AYON_APP_NAME")
         self.folder = ayon_env.get("AYON_FOLDER_PATH")
         self.task = ayon_env.get("AYON_TASK_NAME")
-        log.info(f"{self.task = }")
+
+        bundle_settings = ayon_api.get_bundle_settings(
+            bundle_name=ayon_env.get("AYON_BUNDLE_NAME"),
+            project_name=self.project["name"],
+        )
+        addons = bundle_settings["addons"]
+        self.addon_settings = next(
+            (adn["settings"] for adn in addons if adn["name"] == "comfyui")
+        )
+        self.core_settings = next(
+            (adn["settings"] for adn in addons if adn["name"] == "core")
+        )
 
     @property
     def app(self) -> dict:
@@ -163,7 +176,39 @@ class PublishImage(AyonNode):
     CATEGORY = "👀"
 
     def main(self, image, folder_path, task_name, variant, product_type):
-        log.info(f"{image = }")
+        log.info(f"main arg: {image = }")
+        log.info(f"main arg: {self.folder = }")
+        log.info(f"main arg: {self.task = }")
+        log.info(f"main arg: {variant = }")
+        log.info(f"main arg: {product_type = }")
+
+        # set folder and path to account for possible context change on the node
+        self.folder = folder_path
+        self.task = task_name
+
+        # get product name profiles, get profile match, solve template
+        log.info(f"{self.core_settings = }")
+        profiles = self.core_settings["tools"]["creator"]["product_name_profiles"]
+        log.info(f"{profiles = }")
+        tmpl = StringTemplate(profiles[0]["template"])
+        tmpl_solved = tmpl.format_strict(
+            {
+                "project": self.project["name"],
+                "folder": self.folder["name"],
+                "task": self.task["name"],
+                "variant": variant,
+                "product": {"type": product_type},
+            }
+        )
+        log.info(f"{tmpl_solved = }")
+
+        # save image to workfile dir
+        # save workfile to workfile dir
+        # - don't write per node but use current environment launch context
+
+        return (  # this return is required although denoted as output node, else comfy yells in ur face
+            None,
+        )
 
 
 # A dictionary that contains all nodes you want to export with their names
