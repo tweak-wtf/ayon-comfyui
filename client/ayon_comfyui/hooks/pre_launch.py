@@ -1,3 +1,4 @@
+import os
 import git
 import yaml
 import shutil
@@ -49,7 +50,8 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         log.debug(f"{self.comfy_root = }")
 
         self.plugins = self.addon_settings["repositories"]["plugins"]
-        self.extra_dependencies = set()
+        # i found these deps to be the bare minimum to import ayon_core
+        self.extra_dependencies = {"platformdirs", "semver", "clique"}
         for plugin in self.plugins:
             if plugin.get("extra_dependencies"):
                 self.extra_dependencies.update(plugin["extra_dependencies"])
@@ -201,8 +203,13 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         ]
         log.info(f"{cmd = }")
         env = self.data["env"].copy()
+        # $PYTHONPATH: only passthrough ayon_core addon path and nothing else
+        # needed for comfyui to import the ayon_core module, well at least lib.StringTemplate
         if "PYTHONPATH" in env:
-            del env["PYTHONPATH"]
+            for ppath in env["PYTHONPATH"].split(os.pathsep):
+                if "core" not in ppath or "ayon_core" in ppath:
+                    continue
+                env["PYTHONPATH"] = ppath
 
         popen_kwargs = {
             "stdout": None,
