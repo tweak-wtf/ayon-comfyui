@@ -117,9 +117,27 @@ class PublishImage(AyonNode):
         super().__init__()
 
     @classmethod
-    def INPUT_TYPES(s):
-        # add save workfile bool
-        return {"required": {"image": ("IMAGE",)}}
+    def INPUT_TYPES(cls):
+        cls_inst = cls()
+        # TODO: get variants and product types from project settings
+        variants = ["Main", "Other"]
+        product_types = ["render", "image"]
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                # "save_workfile": ("BOOLEAN", {"default": True}),
+                "folder_path": ("STRING", {"default": cls_inst.folder["path"]}),
+                "task_name": ("STRING", {"default": cls_inst.task["name"]}),
+                "variant": (
+                    "COMBO",
+                    {"options": variants, "multi_select": False},
+                ),
+                "product_type": (
+                    "COMBO",
+                    {"options": product_types, "multi_select": False},
+                ),
+            }
+        }
 
     RETURN_TYPES = ()
     # RETURN_NAMES = ("image_output_name",)
@@ -127,7 +145,7 @@ class PublishImage(AyonNode):
     OUTPUT_NODE = True
     CATEGORY = "👀"
 
-    def main(self, image):
+    def main(self, image, folder_path, task_name, variant, product_type):
         log.info(f"{image = }")
 
 
