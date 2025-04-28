@@ -14,11 +14,8 @@ class AyonNode:
     def __init__(self):
         ayon_env = {k: v for k, v in environ.items() if k.startswith("AYON_")}
         self.project = ayon_env.get("AYON_PROJECT_NAME")
-        log.info(f"{self.project = }")
         self.app = ayon_env.get("AYON_APP_NAME")
-        log.info(f"{self.app = }")
         self.folder = ayon_env.get("AYON_FOLDER_PATH")
-        log.info(f"{self.folder = }")
         self.task = ayon_env.get("AYON_TASK_NAME")
         log.info(f"{self.task = }")
 
@@ -78,7 +75,7 @@ class AyonNode:
         project = ayon_api.get_project(name)
         if not project:
             raise ValueError(f"Project {name} not found")
-        
+
         self.__project = project
 
     @property
@@ -86,12 +83,12 @@ class AyonNode:
         if not self.__task:
             raise ValueError("Task not set")
         return self.__task
-    
+
     @task.setter
     def task(self, name: str):
         if not self.project:
             raise ValueError("Project not set")
-    
+
         if not self.folder:
             raise ValueError("Folder not set")
 
