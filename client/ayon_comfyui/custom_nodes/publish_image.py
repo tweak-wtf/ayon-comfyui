@@ -102,6 +102,26 @@ class AyonNode:
 
         self.__task = task
 
+    @property
+    def product_types(self) -> list:
+        """Get the product types for the current project
+        
+        Note:
+            - only returns `render` product type
+            - where do i set those in AYON?
+        """
+        if not self.project:
+            raise ValueError("Project not set")
+
+        product_types = ayon_api.get_project_product_types(self.project["name"])
+        if not product_types:
+            raise ValueError("No product types found")
+
+        result = list([pt["name"] for pt in product_types])
+        log.info(f"{result = }")
+        return result
+
+
 class PublishImage(AyonNode):
     """AYON PublishImage node for ComfyUI
 
