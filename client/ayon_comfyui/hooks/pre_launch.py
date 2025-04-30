@@ -51,7 +51,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
 
         self.plugins = self.addon_settings["repositories"]["plugins"]
         # i found these deps to be the bare minimum to import ayon_core
-        self.extra_dependencies = {"platformdirs", "semver", "clique"}
+        self.extra_dependencies = {"platformdirs", "semver", "clique", "ayon-python-api"}
         for plugin in self.plugins:
             if plugin.get("extra_dependencies"):
                 self.extra_dependencies.update(plugin["extra_dependencies"])
