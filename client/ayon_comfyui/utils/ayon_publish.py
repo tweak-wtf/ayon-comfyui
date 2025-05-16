@@ -104,28 +104,15 @@ def construct_publish_path(
         product_type: str,
         representation_name: str,
         version: int,
-        anatomy_data: Dict[str, Any],
+        template: Dict[str, Any],
+        publish_root,
         udim: str = "",
         frame: str = "",
-        output: str = "", ) -> str:
+        output: str = "",
+) -> str:
     """Construct publish path using anatomy templates, handling empty optional fields."""
     print("\n[PATH] Constructing publish path")
     try:
-        # Get roots
-        roots = anatomy_data.get("roots", {})
-        print(f"[PATH] Roots: {roots}")
-        publish_root = roots.get("publish", roots.get("default"))
-        if not publish_root:
-            raise ValueError("No publish root found in anatomy data")
-        print(f"[PATH] Publish root: {publish_root}")
-        # Get templates
-        templates = anatomy_data.get("templates", {}).get("publish", {})
-        if not templates:
-            raise ValueError("No publish templates found in anatomy data")
-        # Find appropriate template
-        template = templates.get("ComfyUi")
-        if not template:
-            raise ValueError(f"No template found for product type {product_type}")
         print(f"[PATH] Using template: {template}")
         directory_template = template.get("directory", "")
         file_template = template.get("file", "")
@@ -280,6 +267,7 @@ def create_representation(
         original_basename: Optional[str] = None,
         tags: List[str] = None,
         colorspace: str = "sRGB",
+        template: str = "",
 ) -> str:
     """Create a representation with the given files."""
     print(f"\n[REPRESENTATION] Creating representation '{representation_name}'")
@@ -301,8 +289,18 @@ def create_representation(
         "data": {
             "colorspace": colorspace,
             "originalBasename": original_basename or os.path.basename(files[0]),
-            "isSequence": is_sequence
+            "isSequence": is_sequence,
+            "context": get_context()
         },
+        #"ownAttrib": [
+        #    "path",
+        #    "template"
+        #],
+        "status": "Pending review",
+        "attrib": {
+            "path": file_entries[0]["path"],
+            "template": "{root[publish]}/{project[name]}/{hierarchy}/{folder[name]}/{product[type]}/{task[name]}/{product[name]}/{task[name]}/v{version:0>3}/{project[code]}_{folder[name]}_{product[name]}_v{version:0>3}<_{output}><.{frame:0>4}>.{ext}"
+        }
     }
 
     print("[REPRESENTATION] Creation payload:")
@@ -314,6 +312,63 @@ def create_representation(
 
     return representation_id
 
+def get_template(anatomy_data: Dict[str, Any], product_type: str) -> None:
+    # Get roots
+    roots = anatomy_data.get("roots", {})
+    print(f"[PATH] Roots: {roots}")
+    publish_root = roots.get("publish", roots.get("default"))
+    if not publish_root:
+        raise ValueError("No publish root found in anatomy data")
+    print(f"[PATH] Publish root: {publish_root}")
+    # Get templates
+    templates = anatomy_data.get("templates", {}).get("publish", {})
+    if not templates:
+        raise ValueError("No publish templates found in anatomy data")
+    # Find appropriate template
+    template = templates.get("ComfyUi")
+    if not template:
+        raise ValueError(f"No template found for product type {product_type}")
+    return publish_root, template
+
+def get_context():
+    context = {
+        "ext": "exr",
+        "root": {
+            "publish": "V:/"
+        },
+        "task": {
+            "name": "lookdev",
+            "type": "LookDev",
+            "short": "lookdev"
+        },
+        "user": "alex.szabados",
+        "asset": "sh0100",
+        "frame": "1001",
+        "family": "render",
+        "folder": {
+            "name": "sh0100",
+            "path": "/sq/sh0100",
+            "type": "Shot",
+            "parents": [
+                "sh",
+            ]
+        },
+        "subset": "multi_test",
+        "product": {
+            "name": "multi_test",
+            "type": "render"
+        },
+        "project": {
+            "code": "dBE",
+            "name": "demo_Big_Episodic",
+        },
+        "version": 201,
+        "username": "alex.szabados",
+        "hierarchy": "sq/sh0100",
+        "renderlayer": "multi_test",
+        "representation": "exr"
+    }
+    return context
 
 def publish_to_ayon(
         file_paths: Union[str, List[str]],
@@ -375,6 +430,7 @@ def publish_to_ayon(
 
         # Get project anatomy
         anatomy_data = get_project_anatomy(project_name)
+        publish_root, template = get_template(anatomy_data, product_type)
 
         # Get current user
         author = os.getenv("USER")
@@ -391,6 +447,19 @@ def publish_to_ayon(
                 "fps": 24,
                 "resolutionWidth": 1920,
                 "resolutionHeight": 1080,
+                "frameStart": 1001,
+                "frameEnd": 1003,
+                "handleStart": 0,
+                "handleEnd": 0,
+                "machine": "RND10",
+                # TODO How do we track sources?
+                "source": "Add JSON HERE",
+                "comment": "",
+                "families": [
+                    "default",
+                    "render",
+                    "review"
+                ]
             },
             "data": {"comment": description or ""},
         }
@@ -446,8 +515,9 @@ def publish_to_ayon(
                         product_type=product_type,
                         representation_name=representation_name,
                         version=next_version,
-                        anatomy_data=anatomy_data,
-                        frame=frame
+                        template=template,
+                        frame=frame,
+                        publish_root=publish_root,
                     )
 
                     # Copy file to publish location
@@ -463,12 +533,14 @@ def publish_to_ayon(
                     files=sequence_publish_paths,
                     is_sequence=True,
                     original_basename=os.path.splitext(os.path.basename(files[0]))[0],
-                    tags=["review", "sequence"]
+                    tags=["review", "sequence"],
+                    template=template,
                 )
                 representation_ids.append(rep_id)
                 publish_paths.extend(sequence_publish_paths)
 
                 # Upload first frame as reviewable
+                # TODO fix reviewables (currently only stillframe) and add transcode
                 review_data = {
                     "version_id": version_id,
                     "filepath": sequence_publish_paths[0],
@@ -488,7 +560,8 @@ def publish_to_ayon(
                     product_type=product_type,
                     representation_name=representation_name,
                     version=next_version,
-                    anatomy_data=anatomy_data,
+                    template=template,
+                    publish_root=publish_root,
                 )
 
                 # Copy file to publish location
@@ -502,6 +575,7 @@ def publish_to_ayon(
                     representation_name=representation_name,
                     files=[publish_path],
                     is_sequence=False,
+                    template=template,
                     original_basename=os.path.splitext(os.path.basename(file_path))[0]
                 )
                 representation_ids.append(rep_id)
@@ -564,8 +638,6 @@ def publish_image_to_ayon(
     return legacy_result
 
 
-    # EXAMPLE USAGE
-
 try:
     print("[INIT] Initializing AYON connection")
     ayon_api.init_service(
@@ -595,8 +667,8 @@ except Exception as e:
             r"C:\Users\alex.szabados\Pictures\download.jpg",
             r"C:\Users\alex.szabados\Pictures\WORKS.png",
         ],
-        project_name="alex_playground",
-        folder_path="/shots/sh0100",
+        project_name="demo_Big_Episodic",
+        folder_path="/sq/sh0100",
         product_name="multi_test",
         product_type="render",
         description="Test multi-representation publish",
