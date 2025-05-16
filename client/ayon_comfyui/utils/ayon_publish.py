@@ -107,8 +107,7 @@ def construct_publish_path(
         anatomy_data: Dict[str, Any],
         udim: str = "",
         frame: str = "",
-        output: str = "",
-) -> str:
+        output: str = "", ) -> str:
     """Construct publish path using anatomy templates, handling empty optional fields."""
     print("\n[PATH] Constructing publish path")
     try:
@@ -118,35 +117,28 @@ def construct_publish_path(
         publish_root = roots.get("publish", roots.get("default"))
         if not publish_root:
             raise ValueError("No publish root found in anatomy data")
-
         print(f"[PATH] Publish root: {publish_root}")
-
         # Get templates
         templates = anatomy_data.get("templates", {}).get("publish", {})
         if not templates:
             raise ValueError("No publish templates found in anatomy data")
-
         # Find appropriate template
         template = templates.get("ComfyUi")
         if not template:
             raise ValueError(f"No template found for product type {product_type}")
-
         print(f"[PATH] Using template: {template}")
         directory_template = template.get("directory", "")
         file_template = template.get("file", "")
         print(f"FileTemplate {file_template}")
         # Prepare template data
         parts = folder_path.strip("/").split("/")
-
         if len(parts) == 2:
             hierarchy, folder_name = parts[0], parts[1]
         elif len(parts) == 1:
             hierarchy, folder_name = parts[0], ""
         else:
             hierarchy, folder_name = "", ""
-
         folder_name = os.path.basename(folder_path.rstrip("/"))
-
         template_data = {
             "root": {"publish": publish_root.get("windows")},
             "project": {
@@ -166,17 +158,28 @@ def construct_publish_path(
             "exr": "jpg",
         }
         print(file_template)
+
         # Clean up empty optional fields in the filename template
+        # FIXED: Replace the placeholder patterns with empty strings or actual values
         if not udim:
             file_template = file_template.replace("<_{udim}>", "")
+        else:
+            file_template = file_template.replace("<_{udim}>", f"_{udim}")
+
         if not frame:
             file_template = file_template.replace("<.{frame}>", "")
+        else:
+            file_template = file_template.replace("<.{frame}>", f".{frame}")
+
         if not output:
             file_template = file_template.replace("<_{output}>", "")
+        else:
+            file_template = file_template.replace("<_{output}>", f"_{output}")
+
         print(file_template)
+
         # Remove any double underscores or trailing/leading underscores
         file_template = file_template.replace("__", "_").strip("_")
-
         print(f"[PATH] Final file template: {file_template}")
 
         # Format paths
@@ -194,7 +197,6 @@ def construct_publish_path(
             )
 
         publish_path = os.path.normpath(os.path.join(publish_dir, filename))
-
         print(f"[PATH] Publish directory: {publish_dir}")
         print(f"[PATH] Filename: {filename}")
         print(f"[PATH] Full publish path: {publish_path}")
@@ -204,7 +206,6 @@ def construct_publish_path(
         print("[PATH] Directory structure created")
 
         return publish_path
-
     except Exception as e:
         print(f"[ERROR] Failed to construct publish path: {str(e)}")
         raise
@@ -602,3 +603,27 @@ except Exception as e:
     )
     print("\n=== Multi-Representation Publish Successful ===")
     print(json.dumps(result, indent=2))
+
+try:
+    print("[INIT] Initializing AYON connection")
+    ayon_api.init_service(
+        server_url=os.getenv("AYON_SERVER_URL"), token=os.getenv("AYON_API_KEY")
+    )
+    print("\n[START] Beginning sequence publish process")
+    result = publish_to_ayon(
+        file_paths=[
+            r"C:\Users\alex.szabados\Pictures\test.1001.png",
+            r"C:\Users\alex.szabados\Pictures\test.1002.png",
+            r"C:\Users\alex.szabados\Pictures\test.1003.png",
+        ],
+        project_name="demo_Big_Episodic",
+        folder_path="/sq/sh0100",
+        product_name="sequence_test",
+        product_type="render",
+        description="Test sequence publish",
+    )
+    print("\n=== Sequence Publish Successful ===")
+    print(json.dumps(result, indent=2))
+except Exception as e:
+    print("\n=== Publish Failed ===")
+    print(f"Error: {str(e)}")
