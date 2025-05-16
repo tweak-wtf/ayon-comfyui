@@ -1,13 +1,12 @@
 import os
 import json
 import shutil
-from typing import Dict, Any, Optional
+import re
+from typing import Dict, Any, Optional, List, Tuple, Union
 import ayon_api
 import uuid
 
-# Currently only for single file publish
-# TODO add sequence handling for a list of files. Should group sequences as single representation
-# TODO  add multiple representations for one version
+
 def debug_print_response(response, context: str = ""):
     """Print detailed response information for debugging."""
     print(f"\n[DEBUG] {context} Response:")
@@ -21,8 +20,9 @@ def debug_print_response(response, context: str = ""):
     except:
         print(response.text)
 
+
 def get_or_create_product(
-    project_name: str, folder_id: str, product_name: str, product_type: str
+        project_name: str, folder_id: str, product_name: str, product_type: str
 ) -> Dict[str, Any]:
     """Get existing product or create new one with detailed debugging."""
     print(f"\n[PRODUCT] Looking for product '{product_name}' in folder {folder_id}")
@@ -39,8 +39,8 @@ def get_or_create_product(
         print(f"[PRODUCT] Creating new product '{product_name}'")
         product_data = {
             "name": product_name,
-            "productType": product_type.lower(),
-            "folderId": folder_id,
+            "product_type": product_type.lower(),
+            "folder_id": folder_id,
             "data": {"description": "Automatically created product"},
         }
         print("[PRODUCT] Creation payload:")
@@ -53,6 +53,7 @@ def get_or_create_product(
     except Exception as e:
         print(f"[ERROR] Product operation failed: {str(e)}")
         raise
+
 
 def get_next_version(project_name: str, product_id: str) -> int:
     """Get next version number with detailed debugging."""
@@ -75,6 +76,7 @@ def get_next_version(project_name: str, product_id: str) -> int:
         print(f"[ERROR] Version check failed: {str(e)}")
         return 1
 
+
 def get_project_anatomy(project_name: str) -> Dict[str, Any]:
     """Get project anatomy data."""
     print(f"\n[ANATOMY] Fetching anatomy for project {project_name}")
@@ -93,24 +95,26 @@ def get_project_anatomy(project_name: str) -> Dict[str, Any]:
         print(f"[ERROR] Failed to get anatomy data: {str(e)}")
         raise
 
+
 def construct_publish_path(
-    file_path: str,
-    project_name: str,
-    folder_path: str,
-    product_name: str,
-    product_type: str,
-    representation_name: str,
-    version: int,
-    anatomy_data: Dict[str, Any],
-    udim: str = "",
-    frame: str = "",
-    output: str = "",
+        file_path: str,
+        project_name: str,
+        folder_path: str,
+        product_name: str,
+        product_type: str,
+        representation_name: str,
+        version: int,
+        anatomy_data: Dict[str, Any],
+        udim: str = "",
+        frame: str = "",
+        output: str = "",
 ) -> str:
     """Construct publish path using anatomy templates, handling empty optional fields."""
     print("\n[PATH] Constructing publish path")
     try:
         # Get roots
         roots = anatomy_data.get("roots", {})
+        print(f"[PATH] Roots: {roots}")
         publish_root = roots.get("publish", roots.get("default"))
         if not publish_root:
             raise ValueError("No publish root found in anatomy data")
@@ -158,7 +162,7 @@ def construct_publish_path(
             "representation": representation_name,
             "ext": representation_name,
             "originalBasename": os.path.splitext(os.path.basename(file_path))[0],
-            "output": "",
+            "output": output,
             "exr": "jpg",
         }
         print(file_template)
@@ -206,23 +210,145 @@ def construct_publish_path(
         raise
 
 
-def publish_image_to_ayon(
-    file_path: str,
-    project_name: str,
-    folder_path: str,
-    product_name: str,
-    product_type: str = "image",
-    representation_name: str = "png",
-    description: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Publish an image using AYON's anatomy templates and project roots."""
-    print(f"\n=== Starting publish process ===")
-    print(f"[FILE] Input file: {file_path}")
+def detect_sequence(file_paths: List[str]) -> Dict[str, List[str]]:
+    """
+    Detect sequences in a list of file paths.
 
-    # Validate file exists
-    if not os.path.exists(file_path):
-        raise ValueError(f"[ERROR] File does not exist: {file_path}")
-    print("[FILE] Validation passed")
+    Returns a dictionary where:
+    - Keys are sequence patterns (or single files if not part of a sequence)
+    - Values are lists of files in that sequence
+    """
+    print(f"\n[SEQUENCE] Analyzing {len(file_paths)} files for sequences")
+
+    # Regular expression to detect frame numbers in filenames
+    frame_pattern = re.compile(r'(.+?)(\d+)(\.\w+)$')
+
+    # Group files by their sequence pattern
+    sequences = {}
+
+    for file_path in file_paths:
+        filename = os.path.basename(file_path)
+        match = frame_pattern.match(filename)
+
+        if match:
+            # This file appears to be part of a sequence
+            prefix, frame_num, suffix = match.groups()
+            pattern = f"{prefix}##{suffix}"
+
+            if pattern not in sequences:
+                sequences[pattern] = []
+
+            sequences[pattern].append(file_path)
+        else:
+            # Not part of a sequence, treat as individual file
+            sequences[filename] = [file_path]
+
+    # Sort each sequence by frame number
+    for pattern, files in sequences.items():
+        if len(files) > 1:  # Only sort actual sequences
+            files.sort(key=lambda f: int(re.search(r'(\d+)(\.\w+)$', os.path.basename(f)).group(1)))
+
+    # Print sequence detection results
+    for pattern, files in sequences.items():
+        if len(files) > 1:
+            print(f"[SEQUENCE] Detected sequence '{pattern}' with {len(files)} frames")
+        else:
+            print(f"[SEQUENCE] Single file: {os.path.basename(files[0])}")
+
+    return sequences
+
+
+def extract_frame_info(file_path: str) -> Tuple[Optional[str], Optional[int]]:
+    """Extract frame number and base name from a file path."""
+    filename = os.path.basename(file_path)
+    match = re.search(r'(.+?)(\d+)(\.\w+)$', filename)
+
+    if match:
+        prefix, frame_num, suffix = match.groups()
+        return prefix, int(frame_num)
+
+    return None, None
+
+
+def create_representation(
+        project_name: str,
+        version_id: str,
+        representation_name: str,
+        files: List[str],
+        is_sequence: bool = False,
+        original_basename: Optional[str] = None,
+        tags: List[str] = None,
+        colorspace: str = "sRGB",
+) -> str:
+    """Create a representation with the given files."""
+    print(f"\n[REPRESENTATION] Creating representation '{representation_name}'")
+
+    file_entries = []
+    for file_path in files:
+        file_entries.append({
+            "id": uuid.uuid1().hex,
+            "name": os.path.basename(file_path),
+            "path": file_path,
+            "size": os.path.getsize(file_path),
+        })
+
+    rep_data = {
+        "name": representation_name,
+        "version_id": version_id,
+        "files": file_entries,
+        "tags": tags or ["review"],
+        "data": {
+            "colorspace": colorspace,
+            "originalBasename": original_basename or os.path.basename(files[0]),
+            "isSequence": is_sequence
+        },
+    }
+
+    print("[REPRESENTATION] Creation payload:")
+    print(json.dumps(rep_data, indent=2))
+
+    representation = ayon_api.create_representation(project_name, **rep_data)
+    representation_id = representation
+    print(f"[REPRESENTATION] Created successfully with ID: {representation_id}")
+
+    return representation_id
+
+
+def publish_to_ayon(
+        file_paths: Union[str, List[str]],
+        project_name: str,
+        folder_path: str,
+        product_name: str,
+        product_type: str = "image",
+        representation_names: Optional[List[str]] = None,
+        description: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Publish files to AYON with support for sequences and multiple representations.
+
+    Args:
+        file_paths: Single file path or list of file paths to publish
+        project_name: AYON project name
+        folder_path: AYON folder path
+        product_name: Name of the product to create or use
+        product_type: Type of product (default: "image")
+        representation_names: List of representation names (derived from file extensions if None)
+        description: Optional description for the version
+
+    Returns:
+        Dictionary with publish results
+    """
+    print(f"\n=== Starting publish process ===")
+
+    # Convert single file path to list for consistent handling
+    if isinstance(file_paths, str):
+        file_paths = [file_paths]
+
+    # Validate files exist
+    for file_path in file_paths:
+        if not os.path.exists(file_path):
+            raise ValueError(f"[ERROR] File does not exist: {file_path}")
+    print(f"[FILE] Validation passed for {len(file_paths)} files")
 
     # Initialize connection
     ayon_api.init_service()
@@ -242,28 +368,12 @@ def publish_image_to_ayon(
             project_name, folder_id, product_name, product_type
         )
         product_id = product["id"]
-
+        print(f"[PRODUCT] Found product ID: {product_id}")
         # Get next version
         next_version = get_next_version(project_name, product_id)
 
         # Get project anatomy
         anatomy_data = get_project_anatomy(project_name)
-
-        # Construct publish path
-        publish_path = construct_publish_path(
-            file_path=file_path,
-            project_name=project_name,
-            folder_path=folder_path,
-            product_name=product_name,
-            product_type=product_type,
-            representation_name=representation_name,
-            version=next_version,
-            anatomy_data=anatomy_data,
-        )
-
-        # Copy file to publish location
-        shutil.copy2(file_path, publish_path)
-        print(f"[FILE] Published to: {publish_path}")
 
         # Get current user
         author = os.getenv("USER")
@@ -290,52 +400,125 @@ def publish_image_to_ayon(
         version_id = version
         print(f"[VERSION] Created successfully with ID: {version_id}")
 
-        # Create representation
-        print(f"\n[REPRESENTATION] Creating representation '{representation_name}'")
-        print(os.path.basename(publish_path))
-        base_name, pubdir = os.path.basename(publish_path), os.path.dirname(
-            publish_path
-        )
-        print(base_name.split(".")[0])
-        print(pubdir)
-        print(representation_name)
-        rep_data = {
-            "name": representation_name,
-            "version_id": version_id,
-            "files": [
-                {
-                    "id": uuid.uuid1().hex,
-                    "name": os.path.basename(publish_path),
-                    "path": publish_path,
-                    "size": os.path.getsize(publish_path),
+        # Detect sequences in the files
+        sequences = detect_sequence(file_paths)
+
+        # If representation_names not provided, derive from file extensions
+        if not representation_names:
+            representation_names = []
+            for file_path in file_paths:
+                ext = os.path.splitext(file_path)[1].lstrip('.')
+                if ext not in representation_names:
+                    representation_names.append(ext)
+        # Process each sequence or single file
+        representation_ids = []
+        publish_paths = []
+
+        for pattern, files in sequences.items():
+            is_sequence = len(files) > 1
+
+            # Determine representation name from file extension
+            file_ext = os.path.splitext(files[0])[1].lstrip('.')
+            representation_name = file_ext.lower()
+
+            # Handle sequence publishing
+            if is_sequence:
+                # Get frame numbers for sequence
+                first_file = files[0]
+                _, first_frame = extract_frame_info(first_file)
+                _, last_frame = extract_frame_info(files[-1])
+                frame_str = f"{first_frame}-{last_frame}"
+
+                # Create a directory for the sequence
+                sequence_publish_paths = []
+
+                for file_path in files:
+                    _, frame_num = extract_frame_info(file_path)
+                    frame = f"{frame_num:04d}"
+
+                    # Construct publish path for each frame
+                    publish_path = construct_publish_path(
+                        file_path=file_path,
+                        project_name=project_name,
+                        folder_path=folder_path,
+                        product_name=product_name,
+                        product_type=product_type,
+                        representation_name=representation_name,
+                        version=next_version,
+                        anatomy_data=anatomy_data,
+                        frame=frame
+                    )
+
+                    # Copy file to publish location
+                    shutil.copy2(file_path, publish_path)
+                    print(f"[FILE] Published to: {publish_path}")
+                    sequence_publish_paths.append(publish_path)
+
+                # Create representation for the sequence
+                rep_id = create_representation(
+                    project_name=project_name,
+                    version_id=version_id,
+                    representation_name=representation_name,
+                    files=sequence_publish_paths,
+                    is_sequence=True,
+                    original_basename=os.path.splitext(os.path.basename(files[0]))[0],
+                    tags=["review", "sequence"]
+                )
+                representation_ids.append(rep_id)
+                publish_paths.extend(sequence_publish_paths)
+
+                # Upload first frame as reviewable
+                review_data = {
+                    "version_id": version_id,
+                    "filepath": sequence_publish_paths[0],
                 }
-            ],
-            "tags": ["review"],
-            "data": {
-                "colorspace": "sRGB",
-                "originalBasename": os.path.basename(file_path),
-            },
-        }
-        print(rep_data)
-        print("[REPRESENTATION] Creation payload:")
-        print(json.dumps(rep_data, indent=2))
+                ayon_api.upload_reviewable(project_name, **review_data)
 
-        representation = ayon_api.create_representation(project_name, **rep_data)
-        representation_id = representation
-        print(f"[REPRESENTATION] Created successfully with ID: {representation_id}")
+            else:
+                # Single file publishing
+                file_path = files[0]
 
-        review_data = {
-            "version_id": version_id,
-            "filepath": publish_path,
-        }
-        ayon_api.upload_reviewable(project_name, **review_data)
+                # Construct publish path
+                publish_path = construct_publish_path(
+                    file_path=file_path,
+                    project_name=project_name,
+                    folder_path=folder_path,
+                    product_name=product_name,
+                    product_type=product_type,
+                    representation_name=representation_name,
+                    version=next_version,
+                    anatomy_data=anatomy_data,
+                )
+
+                # Copy file to publish location
+                shutil.copy2(file_path, publish_path)
+                print(f"[FILE] Published to: {publish_path}")
+
+                # Create representation
+                rep_id = create_representation(
+                    project_name=project_name,
+                    version_id=version_id,
+                    representation_name=representation_name,
+                    files=[publish_path],
+                    is_sequence=False,
+                    original_basename=os.path.splitext(os.path.basename(file_path))[0]
+                )
+                representation_ids.append(rep_id)
+                publish_paths.append(publish_path)
+
+                # Upload reviewable
+                review_data = {
+                    "version_id": version_id,
+                    "filepath": publish_path,
+                }
+                ayon_api.upload_reviewable(project_name, **review_data)
 
         return {
             "status": "success",
             "product_id": product_id,
             "version_id": version_id,
-            "representation_id": representation_id,
-            "path": publish_path,
+            "representation_ids": representation_ids,
+            "paths": publish_paths,
             "version": next_version,
         }
 
@@ -343,24 +526,79 @@ def publish_image_to_ayon(
         print(f"\n[ERROR] Publish failed: {str(e)}")
         raise
 
-# EXAMPLE USAGE
+
+def publish_image_to_ayon(
+        file_path: str,
+        project_name: str,
+        folder_path: str,
+        product_name: str,
+        product_type: str = "image",
+        representation_name: str = "png",
+        description: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Legacy function for publishing a single image.
+    Now uses the more general publish_to_ayon function.
+    """
+    result = publish_to_ayon(
+        file_paths=file_path,
+        project_name=project_name,
+        folder_path=folder_path,
+        product_name=product_name,
+        product_type=product_type,
+        representation_names=[representation_name],
+        description=description
+    )
+
+    # Convert to legacy format for backward compatibility
+    legacy_result = {
+        "status": result["status"],
+        "product_id": result["product_id"],
+        "version_id": result["version_id"],
+        "representation_id": result["representation_ids"][0] if result["representation_ids"] else None,
+        "path": result["paths"][0] if result["paths"] else None,
+        "version": result["version"]
+    }
+
+    return legacy_result
+
+
+    # EXAMPLE USAGE
+
 try:
     print("[INIT] Initializing AYON connection")
     ayon_api.init_service(
         server_url=os.getenv("AYON_SERVER_URL"), token=os.getenv("AYON_API_KEY")
     )
-    print("\n[START] Beginning publish process")
+    # Example 1: Single file publish (legacy method)
+    print("\n[START] Beginning single file publish process")
     result = publish_image_to_ayon(
         file_path=r"C:\Users\alex.szabados\Pictures\download.jpg",
-        project_name="alex_playground",
-        folder_path="/shots/sh0100",
+        project_name="demo_Big_Episodic",
+        folder_path="/sq/sh0100",
         product_name="test_render",
         product_type="render",
         representation_name="jpg",
         description="Test publish with anatomy",
     )
-    print("\n=== Publish Successful ===")
+    print("\n=== Single File Publish Successful ===")
     print(json.dumps(result, indent=2))
 except Exception as e:
     print("\n=== Publish Failed ===")
     print(f"Error: {str(e)}")
+
+    # Example 2: Multiple files with different representations
+    print("\n[START] Beginning multi-representation publish process")
+    result = publish_to_ayon(
+        file_paths=[
+            r"C:\Users\alex.szabados\Pictures\download.jpg",
+            r"C:\Users\alex.szabados\Pictures\WORKS.png",
+        ],
+        project_name="alex_playground",
+        folder_path="/shots/sh0100",
+        product_name="multi_test",
+        product_type="render",
+        description="Test multi-representation publish",
+    )
+    print("\n=== Multi-Representation Publish Successful ===")
+    print(json.dumps(result, indent=2))
