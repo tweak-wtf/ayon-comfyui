@@ -1,16 +1,11 @@
 import logging
 import numpy
-from os import environ, makedirs
-from copy import deepcopy
-from pathlib import Path
+from os import environ
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 import json
 import os
 import folder_paths
-import comfy.utils
-import os
-import json
 import server
 from aiohttp import web
 import tkinter as tk
@@ -20,10 +15,9 @@ import traceback
 
 import ayon_api
 from server import PromptServer
-from aiohttp import web
 
-from ayon_core.lib import StringTemplate # This needs to be replaced
-#from ayon_comfyui.utils.ayon_publish import publish_image_to_ayon
+from ayon_core.lib import StringTemplate  # This needs to be replaced
+from ayon_comfyui.utils.ayon_publish import AyonPublisher
 
 
 log = logging.getLogger(__name__)
@@ -533,12 +527,10 @@ class PublishImage(AyonNode):
             except Exception as e:
                 log.error(f"Error saving workflow: {e}")
 
-        # TODO: Implement AYON publishing logic here
-        # This would involve:
-        # 1. Creating a product in AYON
-        # 2. Publishing the image as a representation
-        # 3. Publishing the workflow as a workfile
-
+        # Publishing is triggered via the custom JS button which calls
+        # ``publish_image_api`` with parameters collected from this node.
+        # The main ComfyUI execution only saves the preview image and
+        # workflow JSON locally.
         # Don't return anything since we've hidden the outputs
         return ()
 
@@ -554,13 +546,11 @@ class PublishImage(AyonNode):
         """API method to publish an image from the workflow"""
         try:
             log.info(f"Publishing image from node {node_id}")
-            log.info(f"Workflow data received: {len(str(workflow))} characters")
-            log.info(f"Folder path: {folder_path}")
-            log.info(f"Task name: {task_name}")
+
             # Find the node in the workflow
             node_data = None
-            for node in workflow["nodes"]:
-                if node["id"] == node_id:
+            for node in workflow.get("nodes", []):
+                if node.get("id") == node_id:
                     node_data = node
                     break
 
@@ -570,182 +560,63 @@ class PublishImage(AyonNode):
                     "error": f"Node with ID {node_id} not found in workflow",
                 }
 
-            # Create an instance of PublishImage to access AYON API data
-            publish_instance = PublishImage()
+            # Initialise helper instance for AYON data
+            helper = PublishImage()
 
-            # Extract values from widgets if available
+            # Extract widget values if present
             widget_values = node_data.get("widgets_values", [])
-            log.info(f"Widget values: {widget_values}")
+            if widget_values:
+                folder_path = folder_path or widget_values[0]
+                task_name = task_name or widget_values[1]
+                variant = variant or widget_values[2]
+                product_type = product_type or widget_values[3]
 
-            # Use values from the node's widgets if available
-            if widget_values and len(widget_values) >= 6:
-                folder_path = widget_values[0] if folder_path is None else folder_path
-                task_name = widget_values[1] if task_name is None else task_name
-                variant = widget_values[2] if variant is None else variant
-                product_type = (
-                    widget_values[3] if product_type is None else product_type
-                )
-                output_path = widget_values[5]
-
-            # If values are still None, use the ones from the PublishImage instance
-            folder_path = folder_path or publish_instance.folder.get("path", "")
-            task_name = task_name or publish_instance.task.get("name", "")
+            folder_path = folder_path or helper.folder.get("path", "")
+            task_name = task_name or helper.task.get("name", "")
             variant = variant or "Main"
             product_type = product_type or "render"
 
-            # Set folder and task on the instance
+            # Apply folder/task on helper for product name template evaluation
             try:
-                publish_instance.folder = folder_path
-                publish_instance.task = task_name
-            except Exception as e:
-                log.warning(f"Error setting folder or task: {e}")
+                helper.folder = folder_path
+                helper.task = task_name
+            except Exception as exc:
+                log.warning(f"Failed to set folder or task: {exc}")
 
-            # If output_path is empty, get it from template
-            if not output_path:
-                output_path = publish_instance.get_template_output_path(
-                    product_type, variant
-                )
+            # Get files selected on the node
+            selected_files = node_data.get("properties", {}).get("selectedFiles", [])
+            if not selected_files:
+                return {"success": False, "error": "No files selected for publish"}
 
-            # Create output directory if it doesn't exist
-            os.makedirs(output_path, exist_ok=True)
-
-            # Generate a filename prefix based on AYON conventions
+            # Build product name using project settings
             try:
-                profiles = publish_instance.core_settings["tools"]["creator"][
-                    "product_name_profiles"
-                ]
+                profiles = helper.core_settings["tools"]["creator"]["product_name_profiles"]
                 tmpl = StringTemplate(profiles[0]["template"])
-                filename_prefix = tmpl.format_strict(
-                    {
-                        "project": publish_instance.project["name"],
-                        "folder": publish_instance.folder["name"],
-                        "task": publish_instance.task["name"],
-                        "variant": variant,
-                        "product": {"type": product_type},
-                    }
-                )
-            except Exception as e:
-                log.error(f"Error generating filename prefix: {e}")
-                filename_prefix = f"{product_type}{variant}"
+                product_name = tmpl.format_strict({
+                    "project": helper.project["name"],
+                    "folder": helper.folder["name"],
+                    "task": helper.task["name"],
+                    "variant": variant,
+                    "product": {"type": product_type},
+                })
+            except Exception as exc:
+                log.warning(f"Failed to create product name: {exc}")
+                product_name = f"{product_type}{variant}"
 
-            # Find next available counter
-            counter = 1
-            while True:
-                file = f"{filename_prefix}_{counter:05}.png"
-                save_path = os.path.join(output_path, file)
-                if not os.path.exists(save_path):
-                    break
-                counter += 1
-
-            # Save workflow as JSON
-            workflow_path = os.path.join(
-                output_path, f"{filename_prefix}_{counter:05}_workflow.json"
-            )
-            with open(workflow_path, "w") as f:
-                json.dump(workflow, f, indent=2)
-
-            # Find the most recent image output from ComfyUI
-            import glob
-
-            # Get the ComfyUI output directory
-            output_dir = folder_paths.get_output_directory()
-
-            # Find the most recent PNG file in the output directory
-            png_files = glob.glob(os.path.join(output_dir, "*.png"))
-            if not png_files:
-                return {
-                    "success": False,
-                    "error": "No images found in ComfyUI output directory",
-                }
-
-            # Sort by modification time (newest first)
-            latest_image = max(png_files, key=os.path.getmtime)
-            log.info(f"Using latest image: {latest_image}")
-
-            # Copy the image to our output path
-            import shutil
-
-            shutil.copy2(latest_image, save_path)
-            log.info(f"Copied image to: {save_path}")
-
-            # Create a product in AYON
+            publisher = AyonPublisher()
             try:
-                # Get the folder ID from the folder entity
-                folder_id = publish_instance.folder.get("id")
-                if not folder_id:
-                    log.warning("Could not get folder ID from folder entity")
-                    return {
-                        "success": True,
-                        "output": f"Image saved to {save_path} (AYON publishing failed: missing folder ID)",
-                    }
+                result = publisher.publish_to_ayon(
+                    file_paths=selected_files,
+                    project_name=helper.project["name"],
+                    folder_path=folder_path,
+                    product_name=product_name,
+                    product_type=product_type,
+                )
+            except Exception as exc:
+                log.exception("Error during AYON publish")
+                return {"success": False, "error": str(exc)}
 
-                # Create product name
-                product_name = f"{filename_prefix}_{counter:05}"
-
-                # Use AYON API to create product with the required arguments
-                try:
-                    # Create the product
-                    product_id = ayon_api.create_product(
-                        publish_instance.project["name"],  # project_name
-                        product_name,  # name
-                        product_type,  # product_type
-                        folder_id,  # folder_id
-                    )
-
-                    log.info(f"Created AYON product with ID: {product_id}")
-
-                    if not product_id:
-                        log.warning("Failed to create AYON product")
-                        return {
-                            "success": True,
-                            "output": f"Image saved to {save_path} (AYON product creation failed)",
-                        }
-
-                    # Since we don't have get_product, let's try a different approach
-                    # Let's check what functions are available in ayon_api
-                    available_functions = [
-                        func for func in dir(ayon_api) if not func.startswith("_")
-                    ]
-                    log.info(f"Available functions in ayon_api: {available_functions}")
-
-                    # Look for functions related to versions or representations
-                    version_functions = [
-                        func
-                        for func in available_functions
-                        if "version" in func.lower()
-                    ]
-                    representation_functions = [
-                        func
-                        for func in available_functions
-                        if "representation" in func.lower()
-                    ]
-
-                    log.info(f"Version-related functions: {version_functions}")
-                    log.info(
-                        f"Representation-related functions: {representation_functions}"
-                    )
-
-                    # Let's try a simple approach - just return success for creating the product
-                    # and saving the files locally
-
-                    return {
-                        "success": True,
-                        "output": f"Created AYON product: {product_name}. Files saved to {output_path}",
-                    }
-
-                except Exception as e:
-                    log.exception(f"Error in AYON product creation: {e}")
-                    return {
-                        "success": True,
-                        "output": f"Image saved to {save_path} (AYON product creation error: {str(e)})",
-                    }
-
-            except Exception as e:
-                log.exception("Error publishing to AYON")
-                return {
-                    "success": True,
-                    "output": f"Image saved to {save_path} (AYON publishing error: {str(e)})",
-                }
+            return {"success": True, "result": result}
 
         except Exception as e:
             log.exception("Error publishing image")
