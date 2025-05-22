@@ -5,6 +5,8 @@ import re
 import uuid
 from typing import Dict, Any, Optional, List, Tuple, Union
 
+from PIL import Image
+
 import ayon_api
 
 
@@ -76,13 +78,28 @@ class AyonPublisher:
             # Get next version
             next_version = self._get_next_version(project_name, product_id)
 
+            # Determine resolution from the first file
+            first_file = file_paths[0]
+            res_width = None
+            res_height = None
+            try:
+                with Image.open(first_file) as img:
+                    res_width, res_height = img.size
+            except Exception:
+                pass
+
             # Get project anatomy
             anatomy_data = self._get_project_anatomy(project_name)
             publish_root, template = self._get_template(anatomy_data, product_type)
 
             # Create version
             version_id = self._create_version(
-                project_name, product_id, next_version, description
+                project_name,
+                product_id,
+                next_version,
+                description,
+                res_width,
+                res_height,
             )
 
             # Detect sequences in the files
@@ -103,25 +120,40 @@ class AyonPublisher:
             for pattern, files in sequences.items():
                 is_sequence = len(files) > 1
 
-                # Determine representation name from file extension
                 file_ext = os.path.splitext(files[0])[1].lstrip('.')
-                representation_name = file_ext.lower()
+                representation_name = os.path.splitext(os.path.basename(files[0]))[0]
 
                 if is_sequence:
                     # Handle sequence publishing
                     result = self._publish_sequence(
-                        project_name, folder_path, product_name, product_type,
-                        files, representation_name, version_id, next_version,
-                        template, publish_root
+                        project_name,
+                        folder_path,
+                        product_name,
+                        product_type,
+                        files,
+                        representation_name,
+                        file_ext,
+                        version_id,
+                        next_version,
+                        template,
+                        publish_root,
                     )
                     representation_ids.append(result["representation_id"])
                     publish_paths.extend(result["publish_paths"])
                 else:
                     # Handle single file publishing
                     result = self._publish_single_file(
-                        project_name, folder_path, product_name, product_type,
-                        files[0], representation_name, version_id, next_version,
-                        template, publish_root
+                        project_name,
+                        folder_path,
+                        product_name,
+                        product_type,
+                        files[0],
+                        representation_name,
+                        file_ext,
+                        version_id,
+                        next_version,
+                        template,
+                        publish_root,
                     )
                     representation_ids.append(result["representation_id"])
                     publish_paths.append(result["publish_path"])
@@ -207,6 +239,15 @@ class AyonPublisher:
             self.logger.debug(f"[PRODUCT] Creation payload: {json.dumps(product_data, indent=2)}")
             product = ayon_api.create_product(project_name, **product_data)
             self.logger.info("[PRODUCT] Created new product successfully")
+
+            if isinstance(product, str):
+                # Server may return only an ID
+                try:
+                    product = ayon_api.get_product(project_name, product)
+                except Exception:
+                    self.logger.warning("Failed to fetch product details; using ID only")
+                    product = {"id": product}
+
             return product
         except Exception as e:
             self.logger.error(f"Product operation failed: {str(e)}")
@@ -272,7 +313,13 @@ class AyonPublisher:
         return publish_root, template
 
     def _create_version(
-            self, project_name: str, product_id: str, version_number: int, description: Optional[str] = None
+            self,
+            project_name: str,
+            product_id: str,
+            version_number: int,
+            description: Optional[str] = None,
+            resolution_width: Optional[int] = None,
+            resolution_height: Optional[int] = None,
     ) -> str:
         """Create a new version."""
         author = (
@@ -290,6 +337,14 @@ class AyonPublisher:
             "attrib": {},
             "data": {"comment": description or ""},
         }
+
+        if resolution_width is not None and resolution_height is not None:
+            version_data["attrib"].update(
+                {
+                    "resolutionWidth": resolution_width,
+                    "resolutionHeight": resolution_height,
+                }
+            )
 
         self.logger.debug(f"[VERSION] Creation payload: {json.dumps(version_data, indent=2)}")
         version_id = ayon_api.create_version(project_name, **version_data)
@@ -359,6 +414,7 @@ class AyonPublisher:
             version: int,
             template: Dict[str, Any],
             publish_root: Dict[str, Any],
+            file_ext: str,
             udim: str = "",
             frame: str = "",
             output: str = "",
@@ -395,7 +451,7 @@ class AyonPublisher:
                 "frame": frame,
                 "udim": udim,
                 "representation": representation_name,
-                "ext": representation_name,
+                "ext": file_ext,
                 "originalBasename": os.path.splitext(os.path.basename(file_path))[0],
                 "output": output,
                 "exr": "jpg",
@@ -460,6 +516,8 @@ class AyonPublisher:
             tags: List[str] = None,
             colorspace: str = "sRGB",
             template: str = "",
+            resolution_width: Optional[int] = None,
+            resolution_height: Optional[int] = None,
     ) -> str:
         """Create a representation with the given files."""
         self.logger.info(f"[REPRESENTATION] Creating representation '{representation_name}'")
@@ -490,6 +548,12 @@ class AyonPublisher:
                 "template": "{root[publish]}/{project[name]}/{hierarchy}/{folder[name]}/{product[type]}/{task[name]}/{product[name]}/{task[name]}/v{version:0>3}/{project[code]}_{folder[name]}_{product[name]}_v{version:0>3}<_{output}><.{frame:0>4}>.{ext}"
             }
         }
+
+        if resolution_width is not None and resolution_height is not None:
+            rep_data["attrib"].update({
+                "resolutionWidth": resolution_width,
+                "resolutionHeight": resolution_height,
+            })
 
         self.logger.debug(f"[REPRESENTATION] Creation payload: {json.dumps(rep_data, indent=2)}")
         representation_id = ayon_api.create_representation(project_name, **rep_data)
@@ -529,6 +593,7 @@ class AyonPublisher:
             product_type: str,
             files: List[str],
             representation_name: str,
+            file_ext: str,
             version_id: str,
             version_number: int,
             template: Dict[str, Any],
@@ -537,8 +602,13 @@ class AyonPublisher:
         """Publish a sequence of files."""
         # Get frame numbers for sequence
         first_file = files[0]
-        _, first_frame = self._extract_frame_info(first_file)
-        _, last_frame = self._extract_frame_info(files[-1])
+
+        res_w = res_h = None
+        try:
+            with Image.open(first_file) as img:
+                res_w, res_h = img.size
+        except Exception:
+            pass
 
         # Create a directory for the sequence
         sequence_publish_paths = []
@@ -556,8 +626,10 @@ class AyonPublisher:
                 representation_name=representation_name,
                 version=version_number,
                 template=template,
-                frame=frame,
                 publish_root=publish_root,
+                file_ext=file_ext,
+                frame=frame,
+                output=representation_name,
             )
 
             # Copy file to publish location
@@ -575,6 +647,8 @@ class AyonPublisher:
             original_basename=os.path.splitext(os.path.basename(files[0]))[0],
             tags=["review", "sequence"],
             template=template,
+            resolution_width=res_w,
+            resolution_height=res_h,
         )
 
         # Upload first frame as reviewable
@@ -597,12 +671,20 @@ class AyonPublisher:
             product_type: str,
             file_path: str,
             representation_name: str,
+            file_ext: str,
             version_id: str,
             version_number: int,
             template: Dict[str, Any],
             publish_root: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Publish a single file."""
+        res_w = res_h = None
+        try:
+            with Image.open(file_path) as img:
+                res_w, res_h = img.size
+        except Exception:
+            pass
+
         # Construct publish path
         publish_path = self._construct_publish_path(
             file_path=file_path,
@@ -614,6 +696,8 @@ class AyonPublisher:
             version=version_number,
             template=template,
             publish_root=publish_root,
+            file_ext=file_ext,
+            output=representation_name,
         )
 
         # Copy file to publish location
@@ -628,7 +712,9 @@ class AyonPublisher:
             files=[publish_path],
             is_sequence=False,
             template=template,
-            original_basename=os.path.splitext(os.path.basename(file_path))[0]
+            original_basename=os.path.splitext(os.path.basename(file_path))[0],
+            resolution_width=res_w,
+            resolution_height=res_h,
         )
 
         # Upload reviewable

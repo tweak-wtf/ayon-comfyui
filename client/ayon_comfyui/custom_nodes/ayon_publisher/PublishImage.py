@@ -339,8 +339,7 @@ class PublishImage(AyonNode):
         except Exception as e:
             log.warning(f"Error initializing AYON data for input types: {e}")
 
-        # TODO: get variants and product types from project settings
-        variants = ["Main", "Other"]
+        # TODO: get product types from project settings
         product_types = ["render", "image"]
 
         return {
@@ -363,8 +362,8 @@ class PublishImage(AyonNode):
                     },
                 ),
                 "variant": (
-                    "COMBO",
-                    {"options": variants, "multi_select": False},
+                    "STRING",
+                    {"default": "Main"},
                 ),
                 "product_type": (
                     "COMBO",
