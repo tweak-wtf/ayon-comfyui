@@ -275,28 +275,19 @@ class AyonPublisher:
             self, project_name: str, product_id: str, version_number: int, description: Optional[str] = None
     ) -> str:
         """Create a new version."""
-        # Get current user
-        author = os.getenv("USER", "system")
+        author = (
+            os.getenv("AYON_USERNAME")
+            or os.getenv("USERNAME")
+            or os.getenv("USER")
+            or "system"
+        )
 
-        # Create version
         version_data = {
             "version": version_number,
             "product_id": product_id,
             "author": author,
             "status": "Pending review",
-            "attrib": {
-                "fps": 24,
-                "resolutionWidth": 1920,
-                "resolutionHeight": 1080,
-                "frameStart": 1001,
-                "frameEnd": 1003,
-                "handleStart": 0,
-                "handleEnd": 0,
-                "machine": "RND10",
-                "source": "Add JSON HERE",
-                "comment": "",
-                "families": ["default", "render", "review"]
-            },
+            "attrib": {},
             "data": {"comment": description or ""},
         }
 
@@ -507,45 +498,22 @@ class AyonPublisher:
         return representation_id
 
     def _get_context(self) -> Dict[str, Any]:
-        """Get default context data for representations."""
+        """Build representation context from environment variables."""
+        ayon_env = {k: v for k, v in os.environ.items() if k.startswith("AYON_")}
+
         context = {
-            "ext": "exr",
-            "root": {
-                "publish": "V:/"
-            },
-            "task": {
-                "name": "lookdev",
-                "type": "LookDev",
-                "short": "lookdev"
-            },
-            "user": "alex.szabados",
-            "asset": "sh0100",
-            "frame": "1001",
-            "family": "render",
-            "folder": {
-                "name": "sh0100",
-                "path": "/sq/sh0100",
-                "type": "Shot",
-                "parents": [
-                    "sh",
-                ]
-            },
-            "subset": "multi_test",
-            "product": {
-                "name": "multi_test",
-                "type": "render"
-            },
-            "project": {
-                "code": "dBE",
-                "name": "demo_Big_Episodic",
-            },
-            "version": 201,
-            "username": "alex.szabados",
-            "hierarchy": "sq/sh0100",
-            "renderlayer": "multi_test",
-            "representation": "exr"
+            "project": {"name": ayon_env.get("AYON_PROJECT_NAME")},
+            "folder": {"path": ayon_env.get("AYON_FOLDER_PATH")},
+            "task": {"name": ayon_env.get("AYON_TASK_NAME")},
+            "user": (
+                os.getenv("AYON_USERNAME")
+                or os.getenv("USERNAME")
+                or os.getenv("USER")
+            ),
         }
-        return context
+
+        cleaned = {k: v for k, v in context.items() if all(vv is not None for vv in v.values())}
+        return cleaned
 
     def _publish_sequence(
             self,
