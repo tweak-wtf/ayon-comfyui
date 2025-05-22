@@ -210,7 +210,11 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             for ppath in env["PYTHONPATH"].split(os.pathsep)
             if "core" in ppath and "ayon_core" not in ppath
         ]
-        paths.append(str(ADDON_ROOT))
+        # Add the addon parent directory so the `ayon_comfyui` package can be
+        # discovered when ComfyUI loads custom nodes. Using the addon root
+        # directly (which points inside the package) prevents Python from
+        # locating the package itself.
+        paths.append(str(ADDON_ROOT.parent))
         env["PYTHONPATH"] = os.pathsep.join(paths)
 
         popen_kwargs = {

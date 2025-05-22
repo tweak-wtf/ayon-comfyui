@@ -193,7 +193,7 @@ class AyonPublisher:
                 project_name=project_name, product_name=product_name, folder_id=folder_id
             )
             if product:
-                self.logger.info(f"[PRODUCT] Found existing product")
+                self.logger.info("[PRODUCT] Found existing product")
                 self.logger.debug(json.dumps(product, indent=2))
                 return product
 
@@ -206,7 +206,7 @@ class AyonPublisher:
             }
             self.logger.debug(f"[PRODUCT] Creation payload: {json.dumps(product_data, indent=2)}")
             product = ayon_api.create_product(project_name, **product_data)
-            self.logger.info(f"[PRODUCT] Created new product successfully")
+            self.logger.info("[PRODUCT] Created new product successfully")
             return product
         except Exception as e:
             self.logger.error(f"Product operation failed: {str(e)}")
@@ -501,18 +501,24 @@ class AyonPublisher:
         """Build representation context from environment variables."""
         ayon_env = {k: v for k, v in os.environ.items() if k.startswith("AYON_")}
 
+        user_name = (
+            os.getenv("AYON_USERNAME")
+            or os.getenv("USERNAME")
+            or os.getenv("USER")
+        )
+
         context = {
             "project": {"name": ayon_env.get("AYON_PROJECT_NAME")},
             "folder": {"path": ayon_env.get("AYON_FOLDER_PATH")},
             "task": {"name": ayon_env.get("AYON_TASK_NAME")},
-            "user": (
-                os.getenv("AYON_USERNAME")
-                or os.getenv("USERNAME")
-                or os.getenv("USER")
-            ),
+            "user": {"name": user_name} if user_name else {},
         }
 
-        cleaned = {k: v for k, v in context.items() if all(vv is not None for vv in v.values())}
+        cleaned = {
+            k: v
+            for k, v in context.items()
+            if v and all(vv is not None for vv in v.values())
+        }
         return cleaned
 
     def _publish_sequence(
@@ -533,7 +539,6 @@ class AyonPublisher:
         first_file = files[0]
         _, first_frame = self._extract_frame_info(first_file)
         _, last_frame = self._extract_frame_info(files[-1])
-        frame_str = f"{first_frame}-{last_frame}"
 
         # Create a directory for the sequence
         sequence_publish_paths = []
@@ -672,7 +677,7 @@ class Logger:
         print("Body:")
         try:
             print(json.dumps(response.json(), indent=2))
-        except:
+        except Exception:
             print(response.text)
 
 

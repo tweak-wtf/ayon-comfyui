@@ -1,16 +1,11 @@
 import logging
 import numpy
-from os import environ, makedirs
-from copy import deepcopy
-from pathlib import Path
+from os import environ
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 import json
 import os
 import folder_paths
-import comfy.utils
-import os
-import json
 import server
 from aiohttp import web
 import tkinter as tk
@@ -20,7 +15,6 @@ import traceback
 
 import ayon_api
 from server import PromptServer
-from aiohttp import web
 
 from ayon_core.lib import StringTemplate  # This needs to be replaced
 from ayon_comfyui.utils.ayon_publish import AyonPublisher
