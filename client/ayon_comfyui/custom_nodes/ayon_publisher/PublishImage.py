@@ -22,7 +22,9 @@ import ayon_api
 from server import PromptServer
 from aiohttp import web
 
-from ayon_core.lib import StringTemplate
+from ayon_core.lib import StringTemplate # This needs to be replaced
+#from ayon_comfyui.utils.ayon_publish import publish_image_to_ayon
+
 
 log = logging.getLogger(__name__)
 
@@ -553,7 +555,8 @@ class PublishImage(AyonNode):
         try:
             log.info(f"Publishing image from node {node_id}")
             log.info(f"Workflow data received: {len(str(workflow))} characters")
-
+            log.info(f"Folder path: {folder_path}")
+            log.info(f"Task name: {task_name}")
             # Find the node in the workflow
             node_data = None
             for node in workflow["nodes"]:
@@ -794,6 +797,7 @@ __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 # Register API endpoint
 async def api_publish_image(request):
     try:
+        print("Received publish_image API request")
         data = await request.json()
         node_id = data.get("node_id")
         workflow = data.get("workflow")
