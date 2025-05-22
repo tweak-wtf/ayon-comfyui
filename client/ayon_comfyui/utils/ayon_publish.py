@@ -610,6 +610,12 @@ class AyonPublisher:
         except Exception:
             pass
 
+        prefix, _ = self._extract_frame_info(files[0])
+        print(f"@@prefix: {prefix}")
+        representation_name = prefix.rstrip(".") if prefix else os.path.splitext(
+            os.path.basename(files[0])
+        )[0]
+
         # Create a directory for the sequence
         sequence_publish_paths = []
         for file_path in files:
@@ -644,7 +650,7 @@ class AyonPublisher:
             representation_name=representation_name,
             files=sequence_publish_paths,
             is_sequence=True,
-            original_basename=os.path.splitext(os.path.basename(files[0]))[0],
+            original_basename=representation_name,
             tags=["review", "sequence"],
             template=template,
             resolution_width=res_w,
