@@ -205,11 +205,13 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         env = self.data["env"].copy()
         # $PYTHONPATH: only passthrough ayon_core addon path and nothing else
         # needed for comfyui to import the ayon_core module, well at least lib.StringTemplate
-        if "PYTHONPATH" in env:
-            for ppath in env["PYTHONPATH"].split(os.pathsep):
-                if "core" not in ppath or "ayon_core" in ppath:
-                    continue
-                env["PYTHONPATH"] = ppath
+        paths = [
+            ppath
+            for ppath in env["PYTHONPATH"].split(os.pathsep)
+            if "core" in ppath and "ayon_core" not in ppath
+        ]
+        paths.append(str(ADDON_ROOT))
+        env["PYTHONPATH"] = os.pathsep.join(paths)
 
         popen_kwargs = {
             "stdout": None,
