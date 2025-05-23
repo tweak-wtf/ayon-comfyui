@@ -52,6 +52,7 @@ class AyonPublisher:
             folder_path: str,
             product_name: str,
             product_type: str = "image",
+            task_name: str = "",
             representation_names: Optional[List[str]] = None,
             description: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -171,6 +172,7 @@ class AyonPublisher:
                         folder_type,
                         product_name,
                         product_type,
+                        task_name,
                         files,
                         representation_name,
                         file_ext,
@@ -488,6 +490,7 @@ class AyonPublisher:
             udim: str = "",
             frame: str = "",
             output: str = "",
+            task_name: str = "",
     ) -> str:
         """Construct publish path using anatomy templates, handling empty optional fields."""
         self.logger.info("[PATH] Constructing publish path")
@@ -518,6 +521,7 @@ class AyonPublisher:
                 },
                 "folder": {"name": folder_name, "path": folder_path},
                 "hierarchy": hierarchy,
+                "task": {"name": task_name},
                 "product": {"name": product_name, "type": product_type},
                 "version": f"v{version:03d}",
                 "frame": frame,
@@ -634,7 +638,7 @@ class AyonPublisher:
             "status": "Pending review",
             "attrib": {
                 "path": file_entries[0]["path"],
-                "template": "{root[publish]}/{project[name]}/{hierarchy}/{folder[name]}/{product[type]}/{task[name]}/{product[name]}/{task[name]}/v{version:0>3}/{project[code]}_{folder[name]}_{product[name]}_v{version:0>3}<_{output}><.{frame:0>4}>.{ext}"
+                "template": "{root[publish]}/{project[name]}/{hierarchy}/{folder[name]}/{product[type]}/{task[name]}/{product[name]}/v{version:0>3}/{project[code]}_{folder[name]}_{product[name]}_v{version:0>3}<_{output}><.{frame:0>4}>_fox_submission_logic.{ext}"
             }
         }
         rep_data["data"]["context"]["ext"] = os.path.splitext(files[0])[1].lstrip('.')
@@ -716,6 +720,7 @@ class AyonPublisher:
             folder_type: Optional[str],
             product_name: str,
             product_type: str,
+            task_name: str,
             files: List[str],
             representation_name: str,
             file_ext: str,
@@ -753,6 +758,7 @@ class AyonPublisher:
                 file_path=file_path,
                 project_name=project_name,
                 folder_path=folder_path,
+                task_name=task_name,
                 product_name=product_name,
                 product_type=product_type,
                 representation_name=representation_name,
