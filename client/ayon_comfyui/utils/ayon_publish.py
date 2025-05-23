@@ -624,6 +624,9 @@ class AyonPublisher:
             template: str = "",
             resolution_width: Optional[int] = None,
             resolution_height: Optional[int] = None,
+            frame_start: Optional[int] = None,
+            frame_end: Optional[int] = None,
+            frame_placeholder: Optional[str] = None,
     ) -> str:
         """Create a representation with the given files.
 
@@ -670,6 +673,15 @@ class AyonPublisher:
                 "template": template,
             }
         }
+        context_data = rep_data["data"]["context"]
+        if is_sequence:
+            if frame_placeholder is None:
+                frame_placeholder = "####"
+            context_data["frame"] = frame_placeholder
+            if frame_start is not None:
+                context_data["frameStart"] = frame_start
+            if frame_end is not None:
+                context_data["frameEnd"] = frame_end
         rep_data["data"]["context"]["ext"] = os.path.splitext(files[0])[1].lstrip('.')
         rep_data["data"]["context"]["representation"] = os.path.splitext(files[0])[1].lstrip('.')
         if resolution_width is not None and resolution_height is not None:
@@ -774,11 +786,12 @@ class AyonPublisher:
         except Exception:
             pass
 
-        prefix, _ = self._extract_frame_info(files[0])
-        print(f"@@prefix: {prefix}")
+        prefix, first_frame_num = self._extract_frame_info(files[0])
+        _, last_frame_num = self._extract_frame_info(files[-1])
         representation_name = prefix.rstrip(".") if prefix else os.path.splitext(
             os.path.basename(files[0])
         )[0]
+        frame_placeholder = "####"
 
         # Create a directory for the sequence
         sequence_publish_paths = []
@@ -832,6 +845,9 @@ class AyonPublisher:
             template=sequence_template,
             resolution_width=res_w,
             resolution_height=res_h,
+            frame_start=first_frame_num,
+            frame_end=last_frame_num,
+            frame_placeholder=frame_placeholder,
         )
 
         # Upload first frame as reviewable
@@ -910,6 +926,9 @@ class AyonPublisher:
             original_basename=os.path.splitext(os.path.basename(file_path))[0],
             resolution_width=res_w,
             resolution_height=res_h,
+            frame_start=None,
+            frame_end=None,
+            frame_placeholder=None,
         )
 
         # Upload reviewable
