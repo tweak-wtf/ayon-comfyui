@@ -243,7 +243,13 @@ class AyonPublisher:
             if isinstance(product, str):
                 # Server may return only an ID
                 try:
-                    product = ayon_api.get_product(project_name, product)
+                    if hasattr(ayon_api, "get_product"):
+                        product = ayon_api.get_product(project_name, product)
+                    else:
+                        products = ayon_api.get_products(
+                            project_name, product_ids=[product]
+                        )
+                        product = products[0] if products else None
                 except Exception:
                     self.logger.warning("Failed to fetch product details; using ID only")
                     product = {"id": product}
@@ -548,7 +554,8 @@ class AyonPublisher:
                 "template": "{root[publish]}/{project[name]}/{hierarchy}/{folder[name]}/{product[type]}/{task[name]}/{product[name]}/{task[name]}/v{version:0>3}/{project[code]}_{folder[name]}_{product[name]}_v{version:0>3}<_{output}><.{frame:0>4}>.{ext}"
             }
         }
-
+        rep_data["data"]["context"]["ext"] = os.path.splitext(files[0])[1].lstrip('.')
+        rep_data["data"]["context"]["representation"] = os.path.splitext(files[0])[1].lstrip('.')
         if resolution_width is not None and resolution_height is not None:
             rep_data["attrib"].update({
                 "resolutionWidth": resolution_width,
@@ -572,7 +579,7 @@ class AyonPublisher:
         )
 
         context = {
-            "project": {"name": ayon_env.get("AYON_PROJECT_NAME")},
+            "project": {"name": ayon_env.get("AYON_PROJECT_NAME"), "code": "epi"},
             "folder": {"path": ayon_env.get("AYON_FOLDER_PATH")},
             "task": {"name": ayon_env.get("AYON_TASK_NAME")},
             "user": {"name": user_name} if user_name else {},
