@@ -25,13 +25,25 @@ class AyonPublisher:
         ayon_api.init_service()
         self.logger.info("[CONNECTION] Initialized API connection")
 
-    def _calculate_file_hash(self, file_path: str) -> str:
-        """Compute MD5 hash of a file."""
-        md5 = hashlib.md5()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                md5.update(chunk)
-        return md5.hexdigest()
+    def _calculate_file_hash(self, filepath, *args):
+        """Generate simple identifier for a source file.
+        This is used to identify whether a source file has previously been
+        processe into the pipeline, e.g. a texture.
+        The hash is based on source filepath, modification time and file size.
+        This is only used to identify whether a specific source file was already
+        published before from the same location with the same modification date.
+        We opt to do it this way as opposed to Avalanch C4 hash as this is much
+        faster and predictable enough for all our production use cases.
+        Args:
+            filepath (str): The source file path.
+        You can specify additional arguments in the function
+        to allow for specific 'processing' values to be included.
+        """
+        # We replace dots with comma because . cannot be a key in a pymongo dict.
+        file_name = os.path.basename(filepath)
+        time = str(os.path.getmtime(filepath))
+        size = str(os.path.getsize(filepath))
+        return "|".join([file_name, time, size] + list(args)).replace(".", ",")
 
     def publish_to_ayon(
             self,
@@ -496,11 +508,13 @@ class AyonPublisher:
 
             folder_name = os.path.basename(folder_path.rstrip("/"))
 
+            project_entity = ayon_api.get_project(project_name, fields=["code"])
+            project_code = project_entity["code"]
             template_data = {
                 "root": {"publish": publish_root.get("windows")},
                 "project": {
                     "name": project_name,
-                    "code": project_name[:3],
+                    "code": project_code,
                 },
                 "folder": {"name": folder_name, "path": folder_path},
                 "hierarchy": hierarchy,
@@ -660,6 +674,8 @@ class AyonPublisher:
         folder_parts = folder_path.strip("/").split("/") if folder_path else []
         asset_name = folder_parts[-1] if folder_parts else ""
         hierarchy = "/".join(folder_parts[:-1]) if len(folder_parts) > 1 else ""
+        project_entity = ayon_api.get_project(project_name, fields=["code"])
+        project_code = project_entity["code"]
 
         context = {
             "asset": asset_name,
@@ -668,7 +684,8 @@ class AyonPublisher:
             "family": product_type,
             "project": {
                 "name": project_name,
-                "code": ayon_env.get("AYON_PROJECT_CODE", project_name[:3]),
+                #"code": ayon_env.get("AYON_PROJECT_CODE", project_name[:3]),
+                "code": project_code,
             },
             "folder": {
                 "path": folder_path,
