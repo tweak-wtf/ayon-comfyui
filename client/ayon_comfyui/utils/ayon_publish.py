@@ -294,8 +294,10 @@ class AyonPublisher:
                     if hasattr(ayon_api, "get_product"):
                         product = ayon_api.get_product(project_name, product)
                     else:
-                        products = ayon_api.get_products(
-                            project_name, product_ids=[product]
+                        products = list(
+                            ayon_api.get_products(
+                                project_name, product_ids=[product]
+                            )
                         )
                         product = products[0] if products else None
                 except Exception:
@@ -311,10 +313,19 @@ class AyonPublisher:
         """Get next version number."""
         self.logger.info(f"[VERSION] Getting versions for product {product_id}")
         try:
-            versions = ayon_api.get_versions(project_name, product_ids=[product_id])
+            # ``ayon_api.get_versions`` can return a generator. Convert it to a
+            # list so that truthiness checks behave as expected and the content
+            # can be reused multiple times.
+            versions = list(
+                ayon_api.get_versions(project_name, product_ids=[product_id])
+            )
+
             if versions:
-                version_numbers = [v["version"] for v in versions]
-                next_version = max(version_numbers) + 1
+                version_numbers = [v.get("version") for v in versions if "version" in v]
+                if version_numbers:
+                    next_version = max(version_numbers) + 1
+                else:
+                    next_version = 1
                 self.logger.info(f"[VERSION] Found versions: {version_numbers}")
             else:
                 next_version = 1
@@ -958,6 +969,10 @@ class Logger:
     def error(self, message: str):
         """Log error level message."""
         print(f"\n[ERROR] {message}")
+
+    def warning(self, message: str):
+        """Log warning level message."""
+        print(f"[WARNING] {message}")
 
     def debug(self, message: str):
         """Log debug level message if debug mode is enabled."""
