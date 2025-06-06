@@ -401,7 +401,7 @@ class AyonPublisher:
             "version": version_number,
             "product_id": product_id,
             "author": author,
-            "status": "Pending review",
+            "status": "Pending Review",
             "attrib": {
                 "fps": fps,
                 "clipIn": 1,
@@ -678,7 +678,7 @@ class AyonPublisher:
                     task_name,
                 ),
             },
-            "status": "Pending review",
+            "status": "Pending Review",
             "attrib": {
                 "path": file_entries[0]["path"],
                 "template": template,
