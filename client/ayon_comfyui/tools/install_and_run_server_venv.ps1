@@ -46,7 +46,9 @@ if ($extraDependencies) {
 
 $uv_command = @(".\main.py")
 if ($extraFlags) {
-    $uv_command += $extraFlags
+    foreach ($flag in $extraFlags) {
+        $uv_command += $flag
+    }
 }
 
 $env:OPENCV_IO_ENABLE_OPENEXR = "1" # workaround for opencv error

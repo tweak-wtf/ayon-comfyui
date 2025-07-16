@@ -159,7 +159,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             launch_args.append(self.cache_dir)
         if self.extra_flags:
             launch_args.append("-extraFlags")
-            launch_args.append(self.extra_flags)
+            launch_args.append(",".join(self.extra_flags))
 
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])
