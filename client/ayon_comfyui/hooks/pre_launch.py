@@ -53,7 +53,12 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             if plugin.get("extra_dependencies"):
                 self.extra_dependencies.update(plugin["extra_dependencies"])
 
-        self.extra_flags = self.addon_settings.get("extra_flags", [])
+        # resolve extra flags templates
+        self.extra_flags = []
+        for flag in self.addon_settings.get("extra_flags", []):
+            tmpl = StringTemplate(flag)
+            resolved_flag = tmpl.format_strict(self.tmpl_data)
+            self.extra_flags.append(resolved_flag)
 
         self.cache_dir = None
         if self.addon_settings["caching"].get("enabled"):
