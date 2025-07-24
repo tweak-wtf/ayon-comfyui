@@ -2,6 +2,7 @@ import os
 import git
 import yaml
 import shutil
+import socket
 import ayon_api
 import subprocess
 from pathlib import Path
@@ -28,11 +29,27 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
     launch_types = {LaunchTypes.local}
 
     def execute(self):
+        if self.server_is_running:
+            raise RuntimeError(
+                "ComfyUI server is already running. "
+                "Please stop it before launching again."
+            )
+
         self.pre_process()
         self.clone_repositories()
         self.configure_extra_models()
         self.configure_custom_nodes()
         self.run_server()
+
+    @property
+    def server_is_running(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            try:
+                sock.connect(("127.0.0.1", 8188))   # hardcoded until making it dynamic via server settings
+                return True
+            except (ConnectionRefusedError, socket.timeout, OSError):
+                return False
 
     def pre_process(self):
         anatomy = Anatomy(project_name=self.data["project_name"])
