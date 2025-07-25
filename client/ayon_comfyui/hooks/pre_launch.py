@@ -82,6 +82,44 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             cache_tmpl = self.addon_settings["caching"]["cache_dir_template"]
             self.cache_dir = StringTemplate(cache_tmpl).format_strict(self.tmpl_data)
 
+        # get installed CUDA version and build correct pypi index url
+        try:
+            smi_version_details = subprocess.check_output(
+                ["nvidia-smi", "--version"], text=True
+            ).strip()
+        except subprocess.CalledProcessError as e:
+            log.error(f"Failed to execute `nvidia-smi`: {e} Please ensure NVIDIA drivers are installed.")
+        
+        cuda_version = None
+        for line in smi_version_details.splitlines():
+            if "CUDA Version" in line:
+                parts = line.split(":")
+                cuda_version = parts[1].strip()
+                break
+        if not cuda_version:
+            log.error("Could not determine CUDA version from `nvidia-smi` output.")
+            raise RuntimeError("CUDA version could not be determined.")
+
+        pypi_url_map = {
+            "11.8": {
+                "stable": "https://download.pytorch.org/whl/cu118",
+                "nightly": None,
+            },
+            "12.6": {
+                "stable": "https://download.pytorch.org/whl/cu126",
+                "nightly": "https://download.pytorch.org/whl/nightly/cu126",
+            },
+            "12.8": {
+                "stable": "https://download.pytorch.org/whl/cu128",
+                "nightly": "https://download.pytorch.org/whl/nightly/cu128",
+            },
+            "12.9": {
+                "stable": None,
+                "nightly": "https://download.pytorch.org/whl/nightly/cu129",
+            },
+        }
+        self.pypi_url = pypi_url_map[cuda_version]["nightly"]
+
     def clone_repositories(self):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
             if not dest.exists():
@@ -182,6 +220,9 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         if self.extra_flags:
             launch_args.append("-extraFlags")
             launch_args.append(",".join(self.extra_flags))
+        if self.pypi_url:
+            launch_args.append("-pypiUrl")
+            launch_args.append(self.pypi_url)
 
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])
