@@ -2,6 +2,7 @@
 param(
     [string]$cacheDir = "",
     [string]$pypiUrl = "",
+    [string]$pythonVersion = "",
     [string[]]$plugins = @(),
     [string[]]$extraFlags = @(),
     [string[]]$extraDependencies = @()
@@ -19,7 +20,7 @@ if ($cacheDir) {
 }
 
 # create local venv
-uv venv --allow-existing --python 3.12
+uv venv --allow-existing --python $pythonVersion
 if (-not $?){
     Write-Output "Failed to create venv"
     exit 1

@@ -123,6 +123,8 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         else:
             self.pypi_url = pypi_url_map[cuda_version]["stable"]
 
+        self.py_version = self.addon_settings["venv"]["python_version"]
+
     def clone_repositories(self):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
             if not dest.exists():
@@ -226,6 +228,9 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         if self.pypi_url:
             launch_args.append("-pypiUrl")
             launch_args.append(self.pypi_url)
+        if self.py_version:
+            launch_args.append("-pythonVersion")
+            launch_args.append(self.py_version)
 
         _cmd.extend(launch_args)
         cmd = " ".join([str(arg) for arg in _cmd])
