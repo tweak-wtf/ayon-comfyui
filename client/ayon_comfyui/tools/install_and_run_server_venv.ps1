@@ -1,6 +1,8 @@
 # assumes to be in comfyui directory
 param(
     [string]$cacheDir = "",
+    [string]$pypiUrl = "",
+    [string]$pythonVersion = "",
     [string[]]$plugins = @(),
     [string[]]$extraFlags = @(),
     [string[]]$extraDependencies = @()
@@ -18,7 +20,7 @@ if ($cacheDir) {
 }
 
 # create local venv
-uv venv --allow-existing --python 3.12
+uv venv --allow-existing --python $pythonVersion
 if (-not $?){
     Write-Output "Failed to create venv"
     exit 1
@@ -26,8 +28,10 @@ if (-not $?){
 .venv\Scripts\activate
 
 # Install requirements
+Write-Output "Installing PyTorch with CUDA support"
+uv pip install --pre torch torchvision torchaudio --index-url $pypiUrl
 Write-Output "Installing ComfyUI requirements"
-uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126
+uv pip install -r requirements.txt
 
 # install plugins dependencies
 foreach ($plugin in $plugins) {
