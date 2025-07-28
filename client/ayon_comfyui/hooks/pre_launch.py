@@ -118,7 +118,10 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 "nightly": "https://download.pytorch.org/whl/nightly/cu129",
             },
         }
-        self.pypi_url = pypi_url_map[cuda_version]["nightly"]
+        if bool(self.addon_settings["venv"]["use_torch_nightly"]):
+            self.pypi_url = pypi_url_map[cuda_version]["nightly"]
+        else:
+            self.pypi_url = pypi_url_map[cuda_version]["stable"]
 
     def clone_repositories(self):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
