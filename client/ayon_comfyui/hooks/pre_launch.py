@@ -40,19 +40,19 @@ class SpinnerDialog(QtWidgets.QDialog):
 class Worker(QtCore.QThread):
     finished = QtCore.Signal()
 
-    def __init__(self, fn, *args, **kwargs):
+    def __init__(self, func, *args, **kwargs):
         super().__init__()
-        self.fn = fn
+        self.func = func
         self.args = args
         self.kwargs = kwargs
 
     def run(self):
-        self.fn(*self.args, **self.kwargs)
+        self.func(*self.args, **self.kwargs)
         self.finished.emit()
 
-def run_with_spinner(parent, message, fn, *args, **kwargs):
+def run_with_spinner(parent, message, func, *args, **kwargs):
     spinner = SpinnerDialog(message, parent)
-    worker = Worker(fn, *args, **kwargs)
+    worker = Worker(func, *args, **kwargs)
     worker.finished.connect(spinner.accept)
     worker.start()
     spinner.exec_()
