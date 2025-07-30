@@ -23,7 +23,7 @@ log = Logger.get_logger(__name__)
 
 
 class SpinnerDialog(QtWidgets.QDialog):
-    def __init__(self, message="Working...", parent=None):
+    def __init__(self, message="", parent=None):
         super().__init__(parent)
         self.setWindowTitle("Please wait")
         self.setModal(True)
