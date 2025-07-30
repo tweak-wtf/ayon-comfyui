@@ -53,14 +53,25 @@ class Worker(QtCore.QThread):
         self.func(progress_callback=self.progress.emit)
         self.finished.emit()
 
-def run_with_spinner(func, msg):
+def run_with_spinner(func, msg=""):
     spinner = SpinnerDialog(msg)
     worker = Worker(func)
+
+    aborted = False
+    def abort():
+        nonlocal aborted
+        aborted = True
+        worker.terminate()
+        worker.wait()
+
     worker.finished.connect(spinner.accept)
     worker.progress.connect(spinner.set_message)
+    spinner.rejected.connect(abort)
+
     worker.start()
     spinner.exec_()
     worker.wait()
+    return not aborted
 
 class ComfyUIPreLaunchHook(PreLaunchHook):
     """Inject cli arguments to shell point at launch script."""
@@ -75,7 +86,8 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 "Please stop it before launching again."
             )
 
-        run_with_spinner(self.pre_launch_setup, "Preparing ComfyUI server...")
+        if not run_with_spinner(self.pre_launch_setup):
+            raise RuntimeError("Pre-launch setup was aborted by user.")
         self.run_server()
 
     @property
