@@ -34,7 +34,7 @@ class SpinnerDialog(QtWidgets.QDialog):
         layout.addWidget(self.label)
         layout.addWidget(self.spinner)
         self.setLayout(layout)
-        self.setFixedSize(250, 80)
+        self.setFixedSize(300, 80)
 
     def set_message(self, message):
         self.label.setText(message)
