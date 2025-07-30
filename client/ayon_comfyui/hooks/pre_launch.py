@@ -37,21 +37,27 @@ class SpinnerDialog(QtWidgets.QDialog):
         self.setLayout(layout)
         self.setFixedSize(250, 80)
 
+    def set_message(self, message):
+        self.label.setText(message)
+        QtWidgets.QApplication.processEvents()
+
 class Worker(QtCore.QThread):
     finished = QtCore.Signal()
+    progress = QtCore.Signal(str)
 
     def __init__(self, func):
         super().__init__()
         self.func = func
 
     def run(self):
-        self.func(*self.args, **self.kwargs)
+        self.func(progress_callback=self.progress.emit)
         self.finished.emit()
 
 def run_with_spinner(func, msg):
     spinner = SpinnerDialog(msg)
     worker = Worker(func)
     worker.finished.connect(spinner.accept)
+    worker.progress.connect(spinner.set_message)
     worker.start()
     spinner.exec_()
     worker.wait()
@@ -82,12 +88,13 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             except (ConnectionRefusedError, socket.timeout, OSError):
                 return False
 
-    def pre_launch_setup(self):
-        self.pre_process()
-        self.clone_repositories()
-        self.configure_extra_models()
+    def pre_launch_setup(self, progress_callback=None):
+        self.pre_process(progress_callback)
+        self.clone_repositories(progress_callback)
+        self.configure_extra_models(progress_callback)
 
-    def pre_process(self):
+    def pre_process(self, progress_callback=None):
+        progress_callback("Pre-processing...")
         anatomy = Anatomy(project_name=self.data["project_name"])
         self.tmpl_data = get_template_data(self.data["project_entity"])
         self.tmpl_data.update({"root": anatomy.roots})
@@ -163,7 +170,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
 
         self.py_version = self.addon_settings["venv"]["python_version"]
 
-    def clone_repositories(self):
+    def clone_repositories(self, progress_callback=None):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
             if not dest.exists():
                 log.info(f"Cloning {url} to {dest}")
@@ -188,6 +195,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         # clone custom nodes
         for plugin in self.plugins:
             plugin_name = Path(plugin["url"]).stem
+            progress_callback(f"Cloning Plugin: {plugin_name}")
             plugin_root = self.comfy_root / "custom_nodes" / plugin_name
             plugin.update({"root": plugin_root})
             git_clone(
@@ -196,7 +204,8 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 tag=plugin["tag"],
             )
 
-    def configure_extra_models(self):
+    def configure_extra_models(self, progress_callback=None):
+        progress_callback("Configuring extra models...")
         extra_models_dir_tmpl = StringTemplate(
             self.addon_settings["extra_models"]["dir_template"]
         )
@@ -213,20 +222,23 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             extra_models_map[model_key] = model_dir.as_posix()
 
         if self.addon_settings["extra_models"].get("copy_to_base"):
-            self.__copy_extra_models(extra_models_map)
+            self.__copy_extra_models(extra_models_map, progress_callback)
         else:
-            self.__reference_extra_models(extra_models_map)
+            self.__reference_extra_models(extra_models_map, progress_callback)
 
-    def __copy_extra_models(self, extra_models_map: dict[str, Path]):
+    def __copy_extra_models(self, extra_models_map: dict[str, Path], progress_callback=None):
         for model_key, model_dir in extra_models_map.items():
             model_dest = self.comfy_root / "models" / model_key
             if not model_dest.exists():
-                log.info(f"Copying {model_key} from {model_dir} to {model_dest}")
+                msg = f"Copying {model_key} from {model_dir} to {model_dest}"
+                log.info(msg)
+                progress_callback(msg)
                 shutil.copytree(model_dir, model_dest)
             else:
                 log.info(f"Model {model_key} already exists at {model_dest}")
 
-    def __reference_extra_models(self, extra_models_map: dict[str, Path]):
+    def __reference_extra_models(self, extra_models_map: dict[str, Path], progress_callback=None):
+        progress_callback("Referencing extra models in local config...")
         # get or create config file
         config_file = self.comfy_root / "extra_model_paths.yaml"
         if not config_file.exists():
