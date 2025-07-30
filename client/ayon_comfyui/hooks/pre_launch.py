@@ -40,19 +40,17 @@ class SpinnerDialog(QtWidgets.QDialog):
 class Worker(QtCore.QThread):
     finished = QtCore.Signal()
 
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, func):
         super().__init__()
         self.func = func
-        self.args = args
-        self.kwargs = kwargs
 
     def run(self):
         self.func(*self.args, **self.kwargs)
         self.finished.emit()
 
-def run_with_spinner(parent, message, func, *args, **kwargs):
-    spinner = SpinnerDialog(message, parent)
-    worker = Worker(func, *args, **kwargs)
+def run_with_spinner(func, msg):
+    spinner = SpinnerDialog(msg)
+    worker = Worker(func)
     worker.finished.connect(spinner.accept)
     worker.start()
     spinner.exec_()
@@ -71,7 +69,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 "Please stop it before launching again."
             )
 
-        run_with_spinner(None, "Preparing ComfyUI server...", self.pre_launch_setup)
+        run_with_spinner(self.pre_launch_setup, "Preparing ComfyUI server...")
         self.run_server()
 
     @property
