@@ -3,8 +3,10 @@ import yaml
 import shutil
 import socket
 import ayon_api
+import threading
 import subprocess
 from pathlib import Path
+from qtpy import QtWidgets, QtCore
 
 from ayon_applications import (
     PreLaunchHook,
@@ -21,6 +23,41 @@ from ayon_comfyui import ADDON_ROOT, ADDON_NAME, ADDON_VERSION
 log = Logger.get_logger(__name__)
 
 
+class SpinnerDialog(QtWidgets.QDialog):
+    def __init__(self, message="Working...", parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Please wait")
+        self.setModal(True)
+        layout = QtWidgets.QVBoxLayout(self)
+        self.label = QtWidgets.QLabel(message)
+        self.spinner = QtWidgets.QProgressBar(self)
+        self.spinner.setRange(0, 0)
+        layout.addWidget(self.label)
+        layout.addWidget(self.spinner)
+        self.setLayout(layout)
+        self.setFixedSize(250, 80)
+
+class Worker(QtCore.QThread):
+    finished = QtCore.Signal()
+
+    def __init__(self, fn, *args, **kwargs):
+        super().__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self):
+        self.fn(*self.args, **self.kwargs)
+        self.finished.emit()
+
+def run_with_spinner(parent, message, fn, *args, **kwargs):
+    spinner = SpinnerDialog(message, parent)
+    worker = Worker(fn, *args, **kwargs)
+    worker.finished.connect(spinner.accept)
+    worker.start()
+    spinner.exec_()
+    worker.wait()
+
 class ComfyUIPreLaunchHook(PreLaunchHook):
     """Inject cli arguments to shell point at launch script."""
 
@@ -34,9 +71,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 "Please stop it before launching again."
             )
 
-        self.pre_process()
-        self.clone_repositories()
-        self.configure_extra_models()
+        run_with_spinner(None, "Preparing ComfyUI server...", self.pre_launch_setup)
         self.run_server()
 
     @property
@@ -48,6 +83,11 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 return True
             except (ConnectionRefusedError, socket.timeout, OSError):
                 return False
+
+    def pre_launch_setup(self):
+        self.pre_process()
+        self.clone_repositories()
+        self.configure_extra_models()
 
     def pre_process(self):
         anatomy = Anatomy(project_name=self.data["project_name"])
