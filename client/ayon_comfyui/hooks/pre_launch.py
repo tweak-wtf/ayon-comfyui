@@ -3,7 +3,6 @@ import yaml
 import shutil
 import socket
 import ayon_api
-import threading
 import subprocess
 from pathlib import Path
 from qtpy import QtWidgets, QtCore
