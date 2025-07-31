@@ -190,9 +190,15 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 repo = git.Repo(dest)
 
             repo.git.fetch(tags=True)
+            if repo.is_dirty(untracked_files=True):
+                self.log.info(f"Stashing uncommitted changes in {repo}")
+                repo.git.stash("save", "--include-untracked")
+
             if tag:
                 log.info(f"Checking out tag {tag} for {repo}")
                 repo.git.checkout(tag)
+            else:
+                repo.remotes.origin.pull()
             return repo
 
         app = self.launch_context.data["app"]
