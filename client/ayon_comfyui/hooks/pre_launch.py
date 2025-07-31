@@ -190,9 +190,15 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 repo = git.Repo(dest)
 
             repo.git.fetch(tags=True)
+            if repo.is_dirty(untracked_files=True):
+                self.log.info(f"Stashing uncommitted changes in {repo}")
+                repo.git.stash("save", "--include-untracked")
+
             if tag:
                 log.info(f"Checking out tag {tag} for {repo}")
                 repo.git.checkout(tag)
+            else:
+                repo.remotes.origin.pull()
             return repo
 
         app = self.launch_context.data["app"]
@@ -206,7 +212,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         # clone custom nodes
         for plugin in self.plugins:
             plugin_name = Path(plugin["url"]).stem
-            progress_callback(f"Cloning Plugin: {plugin_name}")
+            progress_callback(f"Setting up Plugin: {plugin_name}")
             plugin_root = self.comfy_root / "custom_nodes" / plugin_name
             plugin.update({"root": plugin_root})
             git_clone(
