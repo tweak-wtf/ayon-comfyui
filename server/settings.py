@@ -18,6 +18,19 @@ class RepositorySettings(BaseSettingsModel):
         self.name = Path(self.url).stem
 
 
+class VirtualEnvSettings(BaseSettingsModel):
+    python_version: str = SettingsField(
+        default="3.12",
+        title="Python Version",
+        description="Python version to use for the virtual environment.",
+    )
+    use_torch_nightly: bool = SettingsField(
+        default=True,
+        title="Use PyTorch Nightly",
+        description="Use the nightly version of PyTorch.",
+    )
+
+
 class CustomNodeSettings(RepositorySettings):
     extra_dependencies: list[str] = SettingsField(
         default_factory=list,
@@ -75,6 +88,11 @@ class AddonSettings(BaseSettingsModel):
         default=[],
         title="Extra Flags",
         description="Extra argument flags to pass when launching the ComfyUI server.",
+    )
+    venv: VirtualEnvSettings = SettingsField(
+        default_factory=VirtualEnvSettings,
+        title="Virtual Environment Settings",
+        description="Virtual Environment Settings for the ComfyUI server.",
     )
     repositories: ComfyUIRepositorySettings = SettingsField(
         default_factory=ComfyUIRepositorySettings,
