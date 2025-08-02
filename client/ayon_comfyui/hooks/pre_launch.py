@@ -102,6 +102,12 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
 
     def pre_launch_setup(self, progress_callback=None):
         self.pre_process(progress_callback)
+        self.cleanup_orphaned_plugins(progress_callback)
+        
+        # Add a small delay to ensure filesystem operations are complete
+        import time
+        time.sleep(0.5)
+        
         self.clone_repositories(progress_callback)
         self.configure_extra_models(progress_callback)
         self.configure_custom_nodes()
@@ -223,6 +229,117 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 dest=plugin_root,
                 tag=plugin["tag"],
             )
+
+            if plugin_name.lower() == "comfyui-manager":
+                self.log.info("Configuring comfyui-manager...")
+                self.log.info(plugin_name)
+                self.log.info(plugin_root)
+                # use uv instead of pip to install comfyui-manager
+                config = plugin_root / "config.ini"
+                self.log.info(f"Configuring comfyui-manager at {config}")
+                with open(config, "w+") as writer:
+                    writer.write(
+                        "[default]\nuse_uv = true\n"
+                    )
+
+    def cleanup_orphaned_plugins(self, progress_callback=None):
+        """Remove plugins from custom_nodes folder that are no longer in Ayon settings."""
+        progress_callback("Cleaning up orphaned plugins...")
+        
+        custom_nodes_dir = self.comfy_root / "custom_nodes"
+        if not custom_nodes_dir.exists():
+            log.info("Custom nodes directory does not exist, skipping cleanup.")
+            return
+        
+        # Get list of plugins from Ayon settings
+        ayon_plugin_names = set()
+        for plugin in self.plugins:
+            plugin_name = Path(plugin["url"]).stem
+            ayon_plugin_names.add(plugin_name)
+        
+        # Files that should never be removed
+        protected_files = {"example_node.py.example", "websocket_image_save.py"}
+        
+        # Scan custom_nodes directory for orphaned plugins
+        for item in custom_nodes_dir.iterdir():
+            if not item.is_dir():
+                continue
+                
+            plugin_name = item.name
+            
+            # Skip if this is a protected file (though it shouldn't be a directory)
+            if plugin_name in protected_files:
+                log.info(f"Skipping protected file: {plugin_name}")
+                continue
+            
+            # Skip if this plugin is still in Ayon settings
+            if plugin_name in ayon_plugin_names:
+                log.debug(f"Plugin {plugin_name} is still in Ayon settings, keeping it.")
+                continue
+            
+            # This plugin is orphaned, remove it
+            log.info(f"Removing orphaned plugin: {plugin_name}")
+            progress_callback(f"Removing orphaned plugin: {plugin_name}")
+            
+            try:
+                # Check if this is a Git repository and handle it properly
+                if (item / ".git").exists():
+                    log.info(f"Detected Git repository for {plugin_name}, using Git cleanup")
+                    self._remove_git_repository(item, plugin_name, progress_callback)
+                else:
+                    # Use a more robust deletion method for non-Git directories
+                    self._remove_directory_robust(item, plugin_name, progress_callback)
+                    
+            except Exception as e:
+                log.error(f"Failed to remove orphaned plugin {plugin_name}: {e}")
+                progress_callback(f"Failed to remove {plugin_name}: {e}")
+
+    def _remove_git_repository(self, repo_path, plugin_name, progress_callback=None):
+        """Remove a Git repository safely by first cleaning up Git objects."""
+        try:
+            # Try to use Git to clean up the repository first
+            repo = git.Repo(repo_path)
+            
+            # Remove any locks that might exist
+            git_dir = repo_path / ".git"
+            for lock_file in git_dir.glob("*.lock"):
+                try:
+                    lock_file.unlink()
+                except Exception as e:
+                    log.warning(f"Could not remove lock file {lock_file}: {e}")
+            
+            # Close the repository to release any file handles
+            repo.close()
+            
+        except Exception as e:
+            log.warning(f"Could not clean up Git repository {plugin_name}: {e}")
+        
+        # Now try to remove the directory with robust deletion
+        self._remove_directory_robust(repo_path, plugin_name, progress_callback)
+
+    def _remove_directory_robust(self, dir_path, plugin_name, progress_callback=None):
+        """Remove a directory using a more robust method that handles read-only files."""
+        import stat
+        
+        def on_rm_error(func, path, exc_info):
+            """Error handler for shutil.rmtree that makes files writable and retries."""
+            # Make the file writable and try again
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except Exception as e:
+                log.warning(f"Could not make {path} writable: {e}")
+                # If we still can't delete it, just log and continue
+                log.warning(f"Could not remove {path}, skipping...")
+        
+        try:
+            # Use shutil.rmtree with error handler
+            shutil.rmtree(dir_path, onerror=on_rm_error)
+            log.info(f"Successfully removed orphaned plugin: {plugin_name}")
+        except Exception as e:
+            log.error(f"Failed to remove directory {plugin_name} even with robust method: {e}")
+            progress_callback(f"Failed to remove {plugin_name}: {e}")
+            raise
 
     def configure_extra_models(self, progress_callback=None):
         progress_callback("Configuring extra models...")
