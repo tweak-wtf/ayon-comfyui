@@ -304,7 +304,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         launch_args = [
             "powershell.exe",
             "-Command",
-            f"Start-Process powershell.exe -ArgumentList '-NoExit', '-Command', '{cmd}'",
+            f"Start-Process powershell.exe -ArgumentList '-NoExit', '-NoProfile', '-Command', '{cmd}'",
         ]
         log.info(f"{cmd = }")
         env = self.data["env"].copy()
