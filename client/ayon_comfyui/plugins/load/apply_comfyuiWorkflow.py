@@ -28,7 +28,7 @@ class comfyuiRMGB(load.LoaderPlugin):
     color = "green"
 
     options_defaults = {
-        "load_workflow": "D:\RMBG_api.json"
+        "load_workflow": "L:\software\comfyui\Workflows_Ayon\Matte_RMGBInspyreNet_api.json"
     }
 
     @classmethod
