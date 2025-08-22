@@ -1,3 +1,4 @@
+import os
 import git
 import sys
 import yaml
@@ -108,6 +109,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         self.pre_process(progress_callback)
         self.clone_repositories(progress_callback)
         self.configure_extra_models(progress_callback)
+        self.configure_custom_nodes()
 
     def pre_process(self, progress_callback=None):
         progress_callback("Pre-processing...")
@@ -126,7 +128,8 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         log.debug(f"{self.comfy_root = }")
 
         self.plugins = self.addon_settings["repositories"]["plugins"]
-        self.extra_dependencies = set()
+        # i found these deps to be the bare minimum to import ayon_core
+        self.extra_dependencies = {"platformdirs", "semver", "clique", "ayon-python-api"}
         for plugin in self.plugins:
             if plugin.get("extra_dependencies"):
                 self.extra_dependencies.update(plugin["extra_dependencies"])
@@ -228,6 +231,10 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
 
     def configure_extra_models(self, progress_callback=None):
         progress_callback("Configuring extra models...")
+        enabled = self.addon_settings["extra_models"].get("enabled")
+        if not enabled:
+            log.info("Extra models are not enabled.")
+            return
         extra_models_dir_tmpl = StringTemplate(
             self.addon_settings["extra_models"]["dir_template"]
         )
@@ -236,6 +243,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             folder for folder in extra_models_dir.iterdir() if folder.is_dir()
         }
         if not extra_model_dirs:
+            log.info(f"No extra models found in {extra_models_dir}.")
             return
 
         extra_models_map: dict[str, str] = {}
@@ -261,6 +269,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
 
     def __reference_extra_models(self, extra_models_map: dict[str, Path], progress_callback=None):
         progress_callback("Referencing extra models in local config...")
+        # TODO: refactor writing to config for configure_custom_nodes
         # get or create config file
         config_file = self.comfy_root / "extra_model_paths.yaml"
         if not config_file.exists():
@@ -275,6 +284,30 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         # update config
         new_conf = config.copy() if config else {}
         new_conf.update({"comfyui": extra_models_map})
+        with config_file.open("w+") as config_writer:
+            yaml.safe_dump(new_conf, config_writer)
+
+    def configure_custom_nodes(self):
+        custom_nodes_dir = ADDON_ROOT / "custom_nodes"
+        config_file = self.comfy_root / "extra_model_paths.yaml"
+        if not config_file.exists():
+            example_config = ADDON_ROOT / "extra_model_paths.yaml.example"
+            shutil.copyfile(example_config, config_file)
+
+        # read current settings
+        with config_file.open("r") as config_reader:
+            config = yaml.safe_load(config_reader)
+            log.info(f"Current config: {config}")
+
+        # update config
+        new_conf = config.copy() if config else {}
+        new_conf.update(
+            {
+                "other_ui": {
+                    "custom_nodes": custom_nodes_dir.as_posix()
+                }
+            }
+        )
         with config_file.open("w+") as config_writer:
             yaml.safe_dump(new_conf, config_writer)
 
@@ -313,8 +346,19 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         ]
         log.info(f"{cmd = }")
         env = self.data["env"].copy()
-        if "PYTHONPATH" in env:
-            del env["PYTHONPATH"]
+        # $PYTHONPATH: only passthrough ayon_core addon path and nothing else
+        # needed for comfyui to import the ayon_core module, well at least lib.StringTemplate
+        paths = [
+            ppath
+            for ppath in env["PYTHONPATH"].split(os.pathsep)
+            if "core" in ppath and "ayon_core" not in ppath
+        ]
+        # Add the addon parent directory so the `ayon_comfyui` package can be
+        # discovered when ComfyUI loads custom nodes. Using the addon root
+        # directly (which points inside the package) prevents Python from
+        # locating the package itself.
+        paths.append(str(ADDON_ROOT.parent))
+        env["PYTHONPATH"] = os.pathsep.join(paths)
 
         popen_kwargs = {
             "stdout": None,
