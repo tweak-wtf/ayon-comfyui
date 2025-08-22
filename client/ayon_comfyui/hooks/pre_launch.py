@@ -175,7 +175,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 "nightly": "https://download.pytorch.org/whl/nightly/cu128",
             },
             "12.9": {
-                "stable": None,
+                "stable": "https://download.pytorch.org/whl/cu129",
                 "nightly": "https://download.pytorch.org/whl/nightly/cu129",
             },
         }
