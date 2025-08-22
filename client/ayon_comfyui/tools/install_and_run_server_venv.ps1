@@ -33,6 +33,12 @@ uv pip install --pre torch torchvision torchaudio --index-url $pypiUrl
 Write-Output "Installing ComfyUI requirements"
 uv pip install -r requirements.txt
 
+# Get actual installed dependencies after core installation (includes transitive deps)
+Write-Output "Capturing installed dependencies to protect from removal..."
+$installedPackages = uv pip list --format json | ConvertFrom-Json
+$protectedDependencies = $installedPackages | ForEach-Object { $_.name }
+Write-Output "Protected dependencies (including transitive): $($protectedDependencies -join ', ')"
+
 # Function to get dependencies from a requirements.txt file
 function Get-PluginDependencies {
     param([string]$requirementsPath)
@@ -103,14 +109,10 @@ foreach ($plugin in $pluginsToRemove) {
     }
 }
 
-# Get ComfyUI base requirements to protect them from deletion
-$comfyuiBaseRequirements = Get-PluginDependencies -requirementsPath "requirements.txt"
-Write-Output "ComfyUI base requirements (protected): $($comfyuiBaseRequirements -join ', ')"
-
 # Find dependencies that were only used by removed plugins
-# Directly use .Values instead of creating intermediate variables
-$dependenciesToRemove = ($removedPluginDependencies.Values | ForEach-Object { $_ }) | Where-Object {
-    $_ -notin ($allPluginDependencies.Values | ForEach-Object { $_ }) -and $_ -notin $comfyuiBaseRequirements
+# Use the captured protected dependencies (includes all transitive deps) instead of just requirements.txt
+$dependenciesToRemove = ($removedPluginDependencies.Values | ForEach-Object { $_ }) | Where-Object { 
+    $_ -notin ($allPluginDependencies.Values | ForEach-Object { $_ }) -and $_ -notin $protectedDependencies 
 } | Sort-Object -Unique
 
 Write-Output "Found $($dependenciesToRemove.Count) dependencies to remove: $($dependenciesToRemove -join ', ')"
