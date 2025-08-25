@@ -1,5 +1,5 @@
 from pathlib import Path
-from ayon_core.addon import AYONAddon, IHostAddon
+from ayon_core.addon import AYONAddon, IHostAddon, IPluginPaths
 
 from .version import __version__
 
@@ -10,7 +10,7 @@ ADDON_LABEL = "ComfyUI"
 ADDON_VERSION = __version__
 
 
-class ComfyUIAddon(AYONAddon, IHostAddon):
+class ComfyUIAddon(AYONAddon, IHostAddon, IPluginPaths):
     name = host_name = ADDON_NAME
     label = ADDON_LABEL
     version = __version__
@@ -19,10 +19,16 @@ class ComfyUIAddon(AYONAddon, IHostAddon):
         """Initialization of module."""
         self.enabled = True
 
+    def get_plugin_paths(self):
+        return {}
+
     def get_launch_hook_paths(self, app):
         return [
             (ADDON_ROOT / "hooks").as_posix(),
         ]
+
+    def get_load_plugin_paths(self, host_name):
+        return [(ADDON_ROOT / 'plugins' / 'load').as_posix()]
 
     def get_workfile_extension(self) -> None:
         return [".ps1"]
