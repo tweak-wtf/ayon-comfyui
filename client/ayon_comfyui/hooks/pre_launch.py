@@ -1,4 +1,5 @@
 import git
+import sys
 import yaml
 import shutil
 import socket
@@ -53,6 +54,9 @@ class Worker(QtCore.QThread):
         self.finished.emit()
 
 def run_with_spinner(func, msg=""):
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        app = QtWidgets.QApplication(sys.argv)
     spinner = SpinnerDialog(msg)
     worker = Worker(func)
 
@@ -62,6 +66,7 @@ def run_with_spinner(func, msg=""):
         aborted = True
         worker.terminate()
         worker.wait()
+        app.quit()
 
     worker.finished.connect(spinner.accept)
     worker.progress.connect(spinner.set_message)
@@ -170,7 +175,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 "nightly": "https://download.pytorch.org/whl/nightly/cu128",
             },
             "12.9": {
-                "stable": None,
+                "stable": "https://download.pytorch.org/whl/cu129",
                 "nightly": "https://download.pytorch.org/whl/nightly/cu129",
             },
         }
