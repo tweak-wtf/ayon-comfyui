@@ -8,37 +8,6 @@ param(
     [string[]]$extraDependencies = @()
 )
 
-# ensure uv is installed
-if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
-    Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
-    $env:Path += ";$env:USERPROFILE\.cargo\bin"
-}
-
-if ($cacheDir) {
-    Write-Output "Setting cache directory to $cacheDir"
-    $env:UV_CACHE_DIR = $cacheDir
-}
-
-# create local venv
-uv venv --allow-existing --python $pythonVersion
-if (-not $?){
-    Write-Output "Failed to create venv"
-    exit 1
-}
-.venv\Scripts\activate
-
-# Install requirements
-Write-Output "Installing PyTorch with CUDA support"
-uv pip install --pre torch torchvision torchaudio --index-url $pypiUrl
-Write-Output "Installing ComfyUI requirements"
-uv pip install -r requirements.txt
-
-# Get actual installed dependencies after core installation (includes transitive deps)
-Write-Output "Capturing installed dependencies to protect from removal..."
-$installedPackages = uv pip list --format json | ConvertFrom-Json
-$protectedDependencies = $installedPackages | ForEach-Object { $_.name }
-Write-Output "Protected dependencies (including transitive): $($protectedDependencies -join ', ')"
-
 # Function to get dependencies from a requirements.txt file
 function Get-PluginDependencies {
     param([string]$requirementsPath)
@@ -81,6 +50,37 @@ function Get-Dependencies {
     }
     return $result
 }
+
+# ensure uv is installed
+if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
+    Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
+    $env:Path += ";$env:USERPROFILE\.cargo\bin"
+}
+
+if ($cacheDir) {
+    Write-Output "Setting cache directory to $cacheDir"
+    $env:UV_CACHE_DIR = $cacheDir
+}
+
+# create local venv
+uv venv --allow-existing --python $pythonVersion
+if (-not $?){
+    Write-Output "Failed to create venv"
+    exit 1
+}
+.venv\Scripts\activate
+
+# Install requirements
+Write-Output "Installing PyTorch with CUDA support"
+uv pip install --pre torch torchvision torchaudio --index-url $pypiUrl
+Write-Output "Installing ComfyUI requirements"
+uv pip install -r requirements.txt
+
+# Get actual installed dependencies after core installation (includes transitive deps)
+Write-Output "Capturing installed dependencies to protect from removal..."
+$installedPackages = uv pip list --format json | ConvertFrom-Json
+$protectedDependencies = $installedPackages | ForEach-Object { $_.name }
+Write-Output "Protected dependencies (including transitive): $($protectedDependencies -join ', ')"
 
 # Plugin cleanup and dependency management
 Write-Output "Starting plugin cleanup and dependency management..."
