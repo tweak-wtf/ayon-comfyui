@@ -118,14 +118,9 @@ $dependenciesToRemove = ($removedPluginDependencies.Values | ForEach-Object { $_
 Write-Output "Found $($dependenciesToRemove.Count) dependencies to remove: $($dependenciesToRemove -join ', ')"
 
 # Remove unused dependencies directly without wrapper function
+Write-Output "Removing orphan dependencies"
 foreach ($dependency in $dependenciesToRemove) {
-    try {
-        Write-Output "Removing package: $dependency"
-        uv pip uninstall $dependency
-    }
-    catch {
-        Write-Output "Warning: Failed to remove package $dependency - $_"
-    }
+    uv pip uninstall $dependency
 }
 
 # install plugins dependencies
