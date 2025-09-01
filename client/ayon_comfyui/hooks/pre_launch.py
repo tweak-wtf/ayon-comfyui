@@ -185,6 +185,7 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             self.pypi_url = pypi_url_map[cuda_version]["stable"]
 
         self.py_version = self.addon_settings["venv"]["python_version"]
+        self.uv_path = self.addon_settings["venv"]["uv_path"]
 
     def clone_repositories(self, progress_callback=None):
         def git_clone(url: str, dest: Path, tag: str = "") -> git.Repo:
@@ -284,6 +285,9 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
         _cmd: list = [launch_script.as_posix()]
 
         launch_args = []
+        if self.uv_path:
+            launch_args.append("-uvPath")
+            launch_args.append(self.uv_path)
         if self.plugins:
             launch_args.append("-plugins")
             plugin_names = [plugin["root"].name for plugin in self.plugins]

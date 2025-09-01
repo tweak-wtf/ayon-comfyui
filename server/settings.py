@@ -19,6 +19,11 @@ class RepositorySettings(BaseSettingsModel):
 
 
 class VirtualEnvSettings(BaseSettingsModel):
+    uv_path: str = SettingsField(
+        default="",
+        title="UV Executable Path",
+        description="Must be the explicit path to the UV executable.",
+    )
     python_version: str = SettingsField(
         default="3.12",
         title="Python Version",
