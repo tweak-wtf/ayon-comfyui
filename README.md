@@ -34,27 +34,8 @@ Could be used in air-gapped scenarios.
 ![image](https://github.com/user-attachments/assets/28b558ee-a4f9-4e57-9961-570104b1f8d0)
 
 ### Plugin and Dependency Management
-The addon automatically manages plugins and their dependencies to maintain a clean ComfyUI environment. When launching ComfyUI, the system performs the following cleanup operations:
-
-#### Plugin Cleanup
-- **Removes unwanted plugins**: Any plugins found in the `custom_nodes` directory that are not in the configured plugins list are automatically deleted
-- **Preserves configured plugins**: Only plugins specified in the Repository Settings are kept
-
-#### Dependency Management
-- **Tracks all dependencies**: Maintains a comprehensive manifest of all installed packages and their sources
-- **Removes unused dependencies**: Automatically uninstalls packages that were only used by removed plugins
-- **Protects core dependencies**: ComfyUI base requirements from `requirements.txt` are never deleted, ensuring core functionality remains intact
-- **Manifest tracking**: Creates and maintains a `dependencies_manifest.json` file that tracks:
-  - Core ComfyUI dependencies
-  - Plugin-specific dependencies
-  - Extra dependencies
-  - Currently installed packages
-  - Last update timestamp
-
-#### Manifest File
-The `dependencies_manifest.json` file is created in the ComfyUI directory and provides a complete audit trail of the environment state. This enables:
-- **Reproducible environments**: Exact dependency state can be recreated
-- **Debugging**: Easy identification of which plugins require which dependencies
-- **Cleanup validation**: Verification of what should be removed vs. what's actually installed
+The addon automatically manages plugins and their dependencies to maintain a clean and reproducible ComfyUI environment.
+This is achieved by tracking the currently active venv against an additional temporary `.baseline-venv` containing only core ComfyUI dependencies.
+Any folder found in the `custom_nodes` directory that is not in the configured plugins list are automatically deleted.
 
 > ⚠️ **Note:** The cleanup process is automatic and cannot be disabled. Ensure your plugin configuration is correct before launching to avoid unintended plugin removal.
