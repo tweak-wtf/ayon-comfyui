@@ -107,7 +107,7 @@ foreach ($plugin in $pluginsToRemove) {
     }
 }
 
-# Find dependencies that were only used by removed plugins
+# Find dependencies that were used by removed plugins
 # Use the captured protected dependencies (includes all transitive deps) instead of just requirements.txt
 $dependenciesToRemove = ($removedPluginDependencies.Values | ForEach-Object { $_ }) | Where-Object { 
     $_ -notin ($allPluginDependencies.Values | ForEach-Object { $_ }) -and $_ -notin $protectedDependencies 
