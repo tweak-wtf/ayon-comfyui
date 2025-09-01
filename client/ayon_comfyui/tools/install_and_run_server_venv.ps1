@@ -114,13 +114,11 @@ foreach ($plugin in $pluginsToRemove) {
 $dependenciesToRemove = ($removedPluginDependencies.Values | ForEach-Object { $_ }) | Where-Object { 
     $_ -notin ($allPluginDependencies.Values | ForEach-Object { $_ }) -and $_ -notin $protectedDependencies 
 } | Sort-Object -Unique
-
-Write-Output "Found $($dependenciesToRemove.Count) dependencies to remove: $($dependenciesToRemove -join ', ')"
-
-# Remove unused dependencies directly without wrapper function
-Write-Output "Removing orphan dependencies"
-foreach ($dependency in $dependenciesToRemove) {
-    uv pip uninstall $dependency
+if ($dependenciesToRemove.Count -gt 0) {
+    Write-Output "Found $($dependenciesToRemove.Count) dependencies to remove: $($dependenciesToRemove -join ', ')"
+    foreach ($dependency in $dependenciesToRemove) {
+        uv pip uninstall $dependency
+    }
 }
 
 # install plugins dependencies
