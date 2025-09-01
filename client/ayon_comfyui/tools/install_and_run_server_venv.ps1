@@ -62,6 +62,17 @@ if ($cacheDir) {
     $env:UV_CACHE_DIR = $cacheDir
 }
 
+# install temp venv to get protected dependencies
+$tempVenv = ".venv-baseline"
+uv venv $tempVenv --python $pythonVersion
+& "$tempVenv\Scripts\activate"
+uv pip install --pre torch torchvision torchaudio --index-url $pypiUrl
+uv pip install -r requirements.txt
+$baselineDependencies = uv pip list --format json | ConvertFrom-Json
+$protectedDependencies = $baselineDependencies | ForEach-Object { $_.name }
+deactivate
+Remove-Item -Path $tempVenv -Recurse -Force
+
 # create local venv
 uv venv --allow-existing --python $pythonVersion
 if (-not $?){
@@ -69,21 +80,8 @@ if (-not $?){
     exit 1
 }
 .venv\Scripts\activate
-
-# Install requirements
-Write-Output "Installing PyTorch with CUDA support"
 uv pip install --pre torch torchvision torchaudio --index-url $pypiUrl
-Write-Output "Installing ComfyUI requirements"
 uv pip install -r requirements.txt
-
-# Get actual installed dependencies after core installation (includes transitive deps)
-Write-Output "Capturing installed dependencies to protect from removal..."
-$installedPackages = uv pip list --format json | ConvertFrom-Json
-$protectedDependencies = $installedPackages | ForEach-Object { $_.name }
-Write-Output "Protected dependencies (including transitive): $($protectedDependencies -join ', ')"
-
-# Plugin cleanup and dependency management
-Write-Output "Starting plugin cleanup and dependency management..."
 
 # Get existing plugins in custom_nodes directory
 $customNodesPath = ".\custom_nodes"
