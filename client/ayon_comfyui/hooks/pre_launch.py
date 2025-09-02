@@ -148,19 +148,22 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
             smi_version_details = subprocess.check_output(
                 ["nvidia-smi", "--version"], text=True
             ).strip()
-        except subprocess.CalledProcessError as e:
-            log.error(f"Failed to execute `nvidia-smi`: {e} Please ensure NVIDIA drivers are installed.")
-        
+        except Exception as e:
+            raise RuntimeError(
+                "Failed to execute `nvidia-smi`. Ensure NVIDIA drivers are installed and on PATH."
+            ) from e
+
         cuda_version = None
         for line in smi_version_details.splitlines():
             if "CUDA Version" in line:
-                parts = line.split(":")
-                cuda_version = parts[1].strip()
+                parts = line.split(":", 1)
+                if len(parts) == 2:
+                    cuda_version = parts[1].strip()
                 break
         if not cuda_version:
-            log.error("Could not determine CUDA version from `nvidia-smi` output.")
-            raise RuntimeError("CUDA version could not be determined.")
+            raise RuntimeError("CUDA version could not be determined from `nvidia-smi` output.")
 
+        # Known mappings; add new ones here as they become available
         pypi_url_map = {
             "11.8": {
                 "stable": "https://download.pytorch.org/whl/cu118",
@@ -178,11 +181,40 @@ class ComfyUIPreLaunchHook(PreLaunchHook):
                 "stable": "https://download.pytorch.org/whl/cu129",
                 "nightly": "https://download.pytorch.org/whl/nightly/cu129",
             },
+            # If/when 13.0 wheels exist, you can add them explicitly:
+            # "13.0": {
+            #     "stable": "https://download.pytorch.org/whl/cu130",
+            #     "nightly": "https://download.pytorch.org/whl/nightly/cu130",
+            # },
         }
-        if bool(self.addon_settings["venv"]["use_torch_nightly"]):
-            self.pypi_url = pypi_url_map[cuda_version]["nightly"]
+
+        # choose channel
+        use_nightly = bool(self.addon_settings["venv"]["use_torch_nightly"])
+        channel = "nightly" if use_nightly else "stable"
+
+        def _ver_tuple(s: str):
+            return tuple(int(x) for x in s.split("."))
+
+        # exact hit if available (and URL exists)
+        if cuda_version in pypi_url_map and pypi_url_map[cuda_version][channel]:
+            self.pypi_url = pypi_url_map[cuda_version][channel]
         else:
-            self.pypi_url = pypi_url_map[cuda_version]["stable"]
+            # graceful fallback: pick highest supported <= installed CUDA
+            supported = sorted(pypi_url_map.keys(), key=_ver_tuple)
+            lower_or_equal = [k for k in supported if _ver_tuple(k) <= _ver_tuple(cuda_version)]
+            if lower_or_equal:
+                fallback = lower_or_equal[-1]
+                log.warning(
+                    f"Unknown CUDA {cuda_version}; falling back to {fallback} ({channel}) for PyTorch wheels."
+                )
+                self.pypi_url = pypi_url_map[fallback][channel]
+            else:
+                log.warning(
+                    f"No suitable CUDA mapping for {cuda_version}; proceeding without custom PyTorch index."
+                )
+                self.pypi_url = None
+
+        log.info(f"Using PyPI URL: {self.pypi_url}")
 
         self.py_version = self.addon_settings["venv"]["python_version"]
         self.uv_path = self.addon_settings["venv"]["uv_path"]
