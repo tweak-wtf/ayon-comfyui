@@ -32,3 +32,10 @@ Could be used in air-gapped scenarios.
 
 
 ![image](https://github.com/user-attachments/assets/28b558ee-a4f9-4e57-9961-570104b1f8d0)
+
+### Plugin and Dependency Management
+The addon automatically manages plugins and their dependencies to maintain a clean and reproducible ComfyUI environment.
+This is achieved by tracking the currently active venv against an additional temporary `.baseline-venv` containing only core ComfyUI dependencies.
+Any folder found in the `custom_nodes` directory that is not in the configured plugins list are automatically deleted.
+
+> ⚠️ **Note:** The cleanup process is automatic and cannot be disabled. Ensure your plugin configuration is correct before launching to avoid unintended plugin removal.
